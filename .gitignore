@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+out/
+
+# TypeScript / Next.js build cache
+*.tsbuildinfo
+
+# Environment — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Local data (uploads, figures, sqlite, generated PDFs)
+data/
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Editors
+.vscode/
+.idea/
+.claude/worktrees/
+
+# OS
+.DS_Store
+Thumbs.db

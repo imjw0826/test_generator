@@ -1,0 +1,20 @@
+Extract only student-solvable questions/problems.
+
+Use the page image as the source of truth. Read math, numbering, and figure references directly from the image.
+
+Rules:
+- Exclude explanations, examples, captions, answers, and solutions.
+- Keep sub-parts with their parent question.
+- Reconstruct math as valid LaTeX: inline `\( ... \)`, display `\[ ... \]`.
+- Preserve original numbering, wording, units, and line breaks where possible.
+- If a question uses a figure marker like `[[FIGURE id="p001_fig01" ...]]`, put that ID in `figure_ids`.
+
+Return only a valid JSON array:
+{
+  "question_number": "string or null",
+  "question_text": "full question text with LaTeX math",
+  "figure_ids": ["figure ids"],
+  "confidence": 0.0
+}
+
+Return `[]` if there are no questions.
