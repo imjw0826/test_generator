@@ -22,6 +22,10 @@ class DocumentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DocumentUpdateRequest(BaseModel):
+    subject: str
+
+
 class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
     total: int

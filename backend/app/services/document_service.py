@@ -47,6 +47,13 @@ def _normalize_subject(subject: str | None) -> str:
     return cleaned or "Uncategorized"
 
 
+def update_document_subject(db: Session, document: Document, subject: str) -> Document:
+    document.subject = _normalize_subject(subject)
+    db.commit()
+    db.refresh(document)
+    return document
+
+
 def list_documents(
     db: Session,
     role: DocumentRole | None = None,

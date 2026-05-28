@@ -66,8 +66,29 @@ def process_document(db: Session, document: Document) -> Document:
                     document_path=document.file_path,
                 )
             except Exception as e:
-                logger.warning(f"Chapter outline detection failed for document {document.id}: {e}")
+                logger.warning("Chapter outline detection failed for document %s: %s", document.id, e)
                 document.chapter_outline = []
+
+            # Fallback 1: heading-based outline (uses detected section headings)
+            if not document.chapter_outline:
+                logger.info(
+                    "No TOC detected for document %s; trying heading-based fallback.", document.id
+                )
+                document.chapter_outline = fallback_chapter_outline(parsed_pages)
+
+            # Fallback 2: treat the entire PDF as one selectable chapter
+            if not document.chapter_outline and parsed_pages:
+                logger.info(
+                    "No headings detected for document %s; using whole-document fallback.", document.id
+                )
+                document.chapter_outline = [
+                    {
+                        "title": "Full Document",
+                        "start_page": parsed_pages[0].page_number,
+                        "end_page": parsed_pages[-1].page_number,
+                        "page_label": None,
+                    }
+                ]
         else:
             document.chapter_outline = fallback_chapter_outline(parsed_pages)
 

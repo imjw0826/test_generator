@@ -33,6 +33,8 @@ export default function DocumentList({
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [selectedChapters, setSelectedChapters] = useState<Record<number, string[]>>({});
   const [outlineDoc, setOutlineDoc] = useState<DocumentInfo | null>(null);
+  const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
+  const [editingSubjectValue, setEditingSubjectValue] = useState("");
 
   async function handleAction(doc: DocumentInfo, action: "process" | "extract" | "reprocess") {
     const docId = doc.id;
@@ -66,6 +68,35 @@ export default function DocumentList({
     } finally {
       setBusyId(null);
       setBusyAction(null);
+    }
+  }
+
+  function startEditSubject(doc: DocumentInfo) {
+    setEditingSubjectId(doc.id);
+    setEditingSubjectValue(doc.subject);
+  }
+
+  function cancelEditSubject() {
+    setEditingSubjectId(null);
+    setEditingSubjectValue("");
+  }
+
+  async function saveSubject(doc: DocumentInfo) {
+    const trimmed = editingSubjectValue.trim();
+    if (!trimmed || trimmed === doc.subject) {
+      cancelEditSubject();
+      return;
+    }
+    try {
+      const updated = await apiFetch<DocumentInfo>(`/api/documents/${doc.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ subject: trimmed }),
+      });
+      onDocumentUpdated(updated);
+    } catch (err) {
+      console.error("subject update failed:", err);
+    } finally {
+      cancelEditSubject();
     }
   }
 
@@ -185,7 +216,36 @@ export default function DocumentList({
                     {doc.original_name}
                   </span>
                 </td>
-                <td className="px-4 py-3">{doc.subject}</td>
+                <td className="px-4 py-3">
+                  {editingSubjectId === doc.id ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={editingSubjectValue}
+                      onChange={(e) => setEditingSubjectValue(e.target.value)}
+                      onBlur={() => saveSubject(doc)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveSubject(doc);
+                        if (e.key === "Escape") cancelEditSubject();
+                      }}
+                      className="w-full min-w-24 rounded border border-blue-400 px-2 py-0.5 text-sm outline-none focus:ring-1 focus:ring-blue-400 dark:bg-zinc-800"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => startEditSubject(doc)}
+                      title="클릭하여 과목 수정"
+                      className="group flex items-center gap-1 rounded px-1 -mx-1 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition"
+                    >
+                      <span>{doc.subject}</span>
+                      <svg
+                        className="h-3 w-3 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        viewBox="0 0 16 16" fill="currentColor"
+                      >
+                        <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/>
+                      </svg>
+                    </button>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <div>{ROLE_LABELS[doc.document_role]}</div>
                   <div className="text-xs text-zinc-500">

@@ -215,6 +215,9 @@ function normalizeText(text: string): string {
     .replace(/([.!?])(\([a-z]\))/g, "$1\n$2")
     .replace(/([^\s])(\([a-z]\))/g, "$1\n$2")
     .replace(/(\([a-z]\))(?=\S)/g, "$1 ")
+    // Join continuation lines that start with "/" onto the previous line
+    // e.g. "m³\n/kg" → "m³/kg" (split unit from PDF column layout)
+    .replace(/([^\n])\n(\/[a-zA-Z])/g, "$1$2")
     .replace(/\n{2,}/g, "\n");
 }
 
@@ -250,9 +253,12 @@ function isMathLine(value: string): boolean {
     return false;
   }
 
-  const hasMathOperator = /[=+\-*/]|y''|y'|\bD\d\b|\bx\d\b/.test(text);
+  // Must contain "=" to qualify as a display equation.
+  // This prevents unit strings like "/kg" or "kJ/kg − K" (which contain "/"
+  // but are not equations) from being rendered as centred display math.
+  const hasEquality = /=/.test(text);
   const hasWords = /[A-Za-z]{4,}/.test(text.replace(/\bln\b/g, ""));
-  return hasMathOperator && !hasWords;
+  return hasEquality && !hasWords;
 }
 
 function isLikelyStandaloneLatex(value: string): boolean {

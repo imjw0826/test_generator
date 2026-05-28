@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func, Integer, nulls_last, case
 
 from app.db.database import get_db
 from app.core.question_translator import translate_question_to_korean
@@ -51,9 +51,31 @@ def list_questions(
         )
 
     total = query.count()
+
+    # Numeric sort for "X.Y" question numbers: split on "." and cast each part as INTEGER
+    # so "6.2" < "6.10" < "6.17" instead of lexicographic "6.10" < "6.17" < "6.2".
+    dot_pos = func.instr(Question.question_number, ".")
+    qnum_major = func.cast(
+        case((dot_pos > 0, func.substr(Question.question_number, 1, dot_pos - 1)),
+             else_=Question.question_number),
+        Integer,
+    )
+    qnum_minor = func.cast(
+        case((dot_pos > 0, func.substr(Question.question_number, dot_pos + 1)),
+             else_="0"),
+        Integer,
+    )
+
     questions = (
         query
-        .order_by(Document.subject, Question.chapter, Question.page_start, Question.id)
+        .order_by(
+            Document.subject,
+            nulls_last(qnum_major),
+            nulls_last(qnum_minor),
+            Question.question_number,
+            Question.page_start,
+            Question.id,
+        )
         .offset(offset)
         .limit(limit)
         .all()
