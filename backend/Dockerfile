@@ -1,8 +1,14 @@
 FROM python:3.12-slim
 
-# Install curl for tectonic download
+# Install system dependencies:
+#   - curl/ca-certificates: tectonic download
+#   - fontconfig: font lookup for tectonic/XeTeX
+#   - fonts-noto-cjk: Korean/CJK glyphs for exam PDF generation
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl ca-certificates \
+      fontconfig \
+      fonts-noto-cjk \
+    && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
 # Install tectonic as a static binary (apt repos don't have it on Debian Bookworm)

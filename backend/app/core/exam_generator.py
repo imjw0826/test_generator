@@ -1,6 +1,8 @@
+import os
 import re
 import shutil
 import subprocess
+import textwrap
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +19,22 @@ PROJECT_NAME = "Study Question Generator"
 PROJECT_URL = "imjw0826.github.io"
 
 _HANGUL_RE = re.compile(r"[가-힣ㄱ-ㅎㅏ-ㅣ]")
+
+# Candidate fontconfig config files (searched in order).
+_FONTCONFIG_CANDIDATES = [
+    "/etc/fonts/fonts.conf",               # Linux (Debian/Ubuntu)
+    "/opt/homebrew/etc/fonts/fonts.conf",  # macOS Apple Silicon + Homebrew
+    "/usr/local/etc/fonts/fonts.conf",     # macOS Intel + Homebrew
+]
+
+# Korean fonts to try (in order) for XeTeX \setmainfont.
+# Noto CJK is installed via fonts-noto-cjk on Debian; macOS ships Apple SD Gothic Neo.
+_KOREAN_FONT_CANDIDATES = [
+    "Noto Sans CJK KR",
+    "NotoSansCJK-Regular",
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+]
 
 
 @dataclass
@@ -151,10 +169,16 @@ def _build_exam_tex(
         r"\usepackage[margin=1in]{geometry}",
     ]
     if use_fontspec:
-        preamble += [
-            r"\usepackage{fontspec}",
-            r"\usepackage{kotex}",
-        ]
+        # Use fontspec with an explicit Korean font rather than kotex so we
+        # don't depend on kotex's \XeTeXlinebreaklocale which requires a
+        # working ICU linebreak library in the server environment.
+        korean_font = _find_korean_font()
+        preamble += [r"\usepackage{fontspec}"]
+        if korean_font:
+            preamble += [
+                rf"\setmainfont{{{korean_font}}}",
+                r"\XeTeXlinebreaklocale """,   # disable locale-aware breaking
+            ]
     if use_cjk:
         preamble += [r"\usepackage{CJKutf8}"]
     preamble += [
@@ -259,10 +283,12 @@ def _compile_tex(
         ]
         runs = 2
 
+    tex_env = _build_tex_env(work_dir)
     for _ in range(runs):
         result = subprocess.run(
             command,
             cwd=work_dir,
+            env=tex_env,
             check=False,
             capture_output=True,
             text=True,
@@ -281,6 +307,53 @@ def _find_latex_engine() -> str | None:
     for engine in ("tectonic", "xelatex", "lualatex", "pdflatex"):
         if shutil.which(engine):
             return engine
+    return None
+
+
+def _build_tex_env(work_dir: Path) -> dict:
+    """Return an os.environ copy with FONTCONFIG_FILE guaranteed to be set."""
+    env = os.environ.copy()
+
+    # If the current value is already a valid file, keep it.
+    if os.path.isfile(env.get("FONTCONFIG_FILE", "")):
+        return env
+
+    # Search known system locations.
+    for candidate in _FONTCONFIG_CANDIDATES:
+        if os.path.isfile(candidate):
+            env["FONTCONFIG_FILE"] = candidate
+            return env
+
+    # Last resort: write a minimal fontconfig that points at common font dirs.
+    minimal = work_dir / "fonts.conf"
+    minimal.write_text(textwrap.dedent("""\
+        <?xml version="1.0"?>
+        <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+        <fontconfig>
+          <dir>/usr/share/fonts</dir>
+          <dir>/usr/local/share/fonts</dir>
+          <dir>/System/Library/Fonts</dir>
+          <dir>/Library/Fonts</dir>
+          <cachedir>/tmp/fontconfig-cache</cachedir>
+        </fontconfig>
+    """))
+    env["FONTCONFIG_FILE"] = str(minimal)
+    return env
+
+
+def _find_korean_font() -> str | None:
+    """Return the first Korean-capable font name visible to fontconfig, or None."""
+    try:
+        result = subprocess.run(
+            ["fc-list", ":lang=ko", "--format=%{family}\n"],
+            capture_output=True, text=True, timeout=10,
+        )
+        available = {line.strip().split(",")[0].strip() for line in result.stdout.splitlines() if line.strip()}
+        for candidate in _KOREAN_FONT_CANDIDATES:
+            if candidate in available:
+                return candidate
+    except Exception:
+        pass
     return None
 
 
