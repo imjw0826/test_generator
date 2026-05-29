@@ -16,6 +16,8 @@ from app.models.question import Question
 PROJECT_NAME = "Study Question Generator"
 PROJECT_URL = "imjw0826.github.io"
 
+_HANGUL_RE = re.compile(r"[가-힣ㄱ-ㅎㅏ-ㅣ]")
+
 
 @dataclass
 class GeneratedExam:
@@ -90,6 +92,12 @@ def _generate_exam_from_questions(
     part_label = _part_label(chapters, questions)
     title = f"{actual_subject} ({part_label})" if part_label else actual_subject
 
+    engine = _find_latex_engine()
+    if not engine:
+        raise RuntimeError(
+            "No LaTeX engine found. Install tectonic or xelatex to generate exam PDFs."
+        )
+
     work_dir = settings.generated_exam_path / uuid.uuid4().hex
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -98,11 +106,13 @@ def _generate_exam_from_questions(
         questions=questions,
         include_answers=include_answers,
         solutions_by_question_id=solutions_by_question_id,
+        engine=engine,
     )
     exam_pdf = _compile_tex(
         work_dir,
         filename_suffix,
         exam_tex,
+        engine=engine,
     )
 
     safe_subject = _safe_filename(actual_subject)
@@ -118,6 +128,7 @@ def _build_exam_tex(
     questions: list[Question],
     include_answers: bool,
     solutions_by_question_id: dict[int, str] | None = None,
+    engine: str | None = None,
 ) -> str:
     figure_state = {"next_number": 1}
     question_blocks = [
@@ -126,17 +137,41 @@ def _build_exam_tex(
     ]
     subtitle = f"{len(questions)} questions | Source: {PROJECT_NAME} ({PROJECT_URL})"
 
-    return "\n".join([
+    # Detect Korean characters anywhere in the output.
+    all_text = title + " ".join(q.question_text or "" for q in questions)
+    needs_korean = bool(_HANGUL_RE.search(all_text))
+
+    # fontspec/kotex work with XeTeX-based engines (tectonic, xelatex, lualatex).
+    # pdflatex falls back to CJKutf8 which requires wrapping the body.
+    use_fontspec = needs_korean and engine in ("tectonic", "xelatex", "lualatex")
+    use_cjk = needs_korean and not use_fontspec  # pdflatex fallback
+
+    preamble: list[str] = [
         r"\documentclass[11pt]{article}",
         r"\usepackage[margin=1in]{geometry}",
+    ]
+    if use_fontspec:
+        preamble += [
+            r"\usepackage{fontspec}",
+            r"\usepackage{kotex}",
+        ]
+    if use_cjk:
+        preamble += [r"\usepackage{CJKutf8}"]
+    preamble += [
         r"\usepackage{amsmath,amssymb}",
         r"\usepackage{graphicx}",
         r"\setlength{\parindent}{0pt}",
         r"\setlength{\parskip}{0.6em}",
+    ]
+
+    return "\n".join([
+        *preamble,
         r"\begin{document}",
+        *([ r"\begin{CJK}{UTF8}{mj}" ] if use_cjk else []),
         rf"\begin{{center}}\Large\textbf{{{_latex_escape(title)}}}\\[0.4em]\normalsize {_latex_escape(subtitle)}\end{{center}}",
         r"\vspace{0.5em}",
         *question_blocks,
+        *([ r"\end{CJK}" ] if use_cjk else []),
         r"\end{document}",
         "",
     ])
@@ -201,11 +236,13 @@ def _compile_tex(
     work_dir: Path,
     stem: str,
     tex: str,
+    engine: str | None = None,
 ) -> Path:
     tex_path = work_dir / f"{stem}.tex"
     tex_path.write_text(tex, encoding="utf-8")
 
-    engine = _find_latex_engine()
+    if not engine:
+        engine = _find_latex_engine()
     if not engine:
         raise RuntimeError("No LaTeX engine found. Install tectonic or xelatex to generate real LaTeX PDFs.")
 
