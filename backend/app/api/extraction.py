@@ -7,7 +7,7 @@ from app.db.database import get_db
 from app.schemas.document import DocumentResponse
 from app.services.document_service import get_document
 from app.services.extraction_service import process_document
-from app.services.question_service import extract_questions_for_document
+from app.services.question_service import extract_questions_for_document, get_extraction_progress
 from app.models.document import PdfScope
 
 router = APIRouter(prefix="/api", tags=["extraction"])
@@ -29,6 +29,11 @@ def _handle_llm_error(e: Exception, action: str):
         if e.status_code == 403:
             raise HTTPException(403, f"Anthropic API access denied: {e}")
     raise HTTPException(500, f"{action} failed: {e}")
+
+
+@router.get("/documents/{document_id}/progress")
+def get_progress(document_id: int):
+    return get_extraction_progress(document_id)
 
 
 @router.post("/documents/{document_id}/process", response_model=DocumentResponse)

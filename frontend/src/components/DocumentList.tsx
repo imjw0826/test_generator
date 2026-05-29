@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { DocumentInfo } from "@/lib/types";
+
+interface ExtractionProgress {
+  active: boolean;
+  current: number;
+  total: number;
+  percent: number;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-yellow-100 text-yellow-800",
@@ -35,6 +42,35 @@ export default function DocumentList({
   const [outlineDoc, setOutlineDoc] = useState<DocumentInfo | null>(null);
   const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
   const [editingSubjectValue, setEditingSubjectValue] = useState("");
+  const [extractProgress, setExtractProgress] = useState<Record<number, ExtractionProgress>>({});
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (busyId === null || busyAction !== "extract") {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+    const docId = busyId;
+    pollingRef.current = setInterval(async () => {
+      try {
+        const data = await apiFetch<ExtractionProgress>(`/api/documents/${docId}/progress`);
+        if (data.active) {
+          setExtractProgress((prev) => ({ ...prev, [docId]: data }));
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 1000);
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [busyId, busyAction]);
 
   async function handleAction(doc: DocumentInfo, action: "process" | "extract" | "reprocess") {
     const docId = doc.id;
@@ -62,6 +98,11 @@ export default function DocumentList({
       }
       if (action === "extract") {
         setOutlineDoc(null);
+        setExtractProgress((prev) => {
+          const next = { ...prev };
+          delete next[docId];
+          return next;
+        });
       }
     } catch (err) {
       console.error(`${action} failed:`, err);
@@ -310,6 +351,24 @@ export default function DocumentList({
                       {isBusy && busyAction === "delete" ? "Deleting..." : "Delete"}
                     </button>
                   </div>
+                  {isBusy && busyAction === "extract" && (() => {
+                    const prog = extractProgress[doc.id];
+                    const percent = prog?.percent ?? 0;
+                    const label = prog
+                      ? `${prog.current} / ${prog.total} pages (${percent}%)`
+                      : "Starting...";
+                    return (
+                      <div className="mt-2 space-y-1">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                          <div
+                            className="h-full rounded-full bg-green-500 transition-all duration-500"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-zinc-500">{label}</p>
+                      </div>
+                    );
+                  })()}
                   {doc.pdf_scope === "full" && doc.status === "parsed" && (!doc.chapter_outline || doc.chapter_outline.length === 0) && (
                     <p className="mt-2 text-xs text-amber-600">
                       No contents entries found. Check whether the PDF has a text-readable contents page.

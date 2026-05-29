@@ -16,6 +16,19 @@ from app.models.question import Question
 
 logger = logging.getLogger(__name__)
 
+# In-memory extraction progress store: {document_id: {current, total}}
+# Single-process deployment (one uvicorn worker) so this is safe.
+_extraction_progress: dict[int, dict] = {}
+
+
+def get_extraction_progress(document_id: int) -> dict:
+    prog = _extraction_progress.get(document_id)
+    if not prog:
+        return {"active": False, "current": 0, "total": 0, "percent": 0}
+    current, total = prog["current"], prog["total"]
+    percent = round(current / total * 100) if total else 0
+    return {"active": True, "current": current, "total": total, "percent": percent}
+
 
 @dataclass
 class ExtractedQuestionData:
@@ -42,6 +55,7 @@ def extract_questions_for_document(
             selected_chapter_ranges=selected_chapter_ranges,
         )
     except Exception as e:
+        _extraction_progress.pop(document.id, None)
         db.rollback()
         document.status = DocumentStatus.failed
         document.error_message = f"Extraction failed: {str(e)[:400]}"
@@ -81,8 +95,13 @@ def _do_extract(
 
     page_images = _render_candidate_pages(document, candidates)
 
+    total_candidates = len(candidates)
+    _extraction_progress[document.id] = {"current": 0, "total": total_candidates}
+
     extracted_payloads: list[ExtractedQuestionData] = []
-    for block in candidates:
+    for i, block in enumerate(candidates):
+        _extraction_progress[document.id]["current"] = i + 1
+
         page_image = page_images.get(block.page_number)
         if settings.llm_include_page_image and not page_image:
             logger.warning(f"Skipping page {block.page_number}: page image is unavailable")
@@ -132,6 +151,7 @@ def _do_extract(
     document.error_message = None
     db.commit()
 
+    _extraction_progress.pop(document.id, None)
     logger.info(f"Extracted {len(all_questions)} questions from document {document.id}")
     return all_questions
 
