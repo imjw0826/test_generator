@@ -5,6 +5,26 @@ import { apiDownload, apiFetch } from "@/lib/api";
 import { QuestionFilterOptionsResponse, QuestionInfo } from "@/lib/types";
 import QuestionCard from "@/components/QuestionCard";
 import QuestionDetail from "@/components/QuestionDetail";
+import TaskProgress, { useTaskProgress, ProgressStage } from "@/components/TaskProgress";
+
+// ── Stage definitions ────────────────────────────────────────────────────────
+
+const GENERATE_STAGES: ProgressStage[] = [
+  { label: "문제 랜덤 선택 중...", durationMs: 600 },
+];
+
+const EXAM_PDF_STAGES: ProgressStage[] = [
+  { label: "문제 선택 중...", durationMs: 400 },
+  { label: "LaTeX 문서 생성 중...", durationMs: 800 },
+  { label: "PDF 컴파일 중 (tectonic)...", durationMs: 5000 },
+];
+
+const SOLUTIONS_PDF_STAGES: ProgressStage[] = [
+  { label: "문제 선택 중...", durationMs: 400 },
+  { label: "Claude Opus로 풀이 생성 중...", durationMs: 45000 },
+  { label: "LaTeX 문서 생성 중...", durationMs: 800 },
+  { label: "PDF 컴파일 중 (tectonic)...", durationMs: 5000 },
+];
 
 interface StudySetResponse {
   questions: QuestionInfo[];
@@ -32,6 +52,10 @@ export default function StudySetPage() {
   const [selected, setSelected] = useState<QuestionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const generateProgress = useTaskProgress();
+  const examProgress = useTaskProgress();
+  const solutionsProgress = useTaskProgress();
+
   const availableChapters = subject
     ? filterOptions.chapters_by_subject[subject] ?? []
     : filterOptions.chapters;
@@ -52,10 +76,9 @@ export default function StudySetPage() {
   async function generate() {
     setLoading(true);
     setError(null);
+    generateProgress.start(GENERATE_STAGES);
     try {
-      const body: Record<string, unknown> = {
-        count,
-      };
+      const body: Record<string, unknown> = { count };
       if (subject) body.subjects = [subject];
       if (selectedChapters.length > 0) body.chapters = selectedChapters;
       if (excludeIds.length > 0) body.exclude_question_ids = excludeIds;
@@ -67,9 +90,10 @@ export default function StudySetPage() {
       setQuestions(data.questions);
       setTotalAvailable(data.total_available);
       setExcludeIds([]);
+      generateProgress.finish();
     } catch (err) {
+      generateProgress.cancel();
       setError(err instanceof Error ? err.message : "Failed to generate study set");
-      console.error("Failed to generate study set:", err);
     } finally {
       setLoading(false);
     }
@@ -78,6 +102,7 @@ export default function StudySetPage() {
   async function downloadExam() {
     setDownloading(true);
     setError(null);
+    examProgress.start(EXAM_PDF_STAGES);
     try {
       const body: Record<string, unknown> = {
         count,
@@ -90,6 +115,7 @@ export default function StudySetPage() {
         method: "POST",
         body: JSON.stringify(body),
       });
+      examProgress.finish();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -99,8 +125,8 @@ export default function StudySetPage() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
+      examProgress.cancel();
       setError(err instanceof Error ? err.message : "Failed to download exam PDF");
-      console.error("Failed to download exam PDF:", err);
     } finally {
       setDownloading(false);
     }
@@ -109,6 +135,7 @@ export default function StudySetPage() {
   async function downloadSolutions() {
     setDownloadingSolutions(true);
     setError(null);
+    solutionsProgress.start(SOLUTIONS_PDF_STAGES);
     try {
       const body: Record<string, unknown> = { count };
       if (subject) body.subject = subject;
@@ -118,6 +145,7 @@ export default function StudySetPage() {
         method: "POST",
         body: JSON.stringify(body),
       });
+      solutionsProgress.finish();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -127,8 +155,8 @@ export default function StudySetPage() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
+      solutionsProgress.cancel();
       setError(err instanceof Error ? err.message : "Failed to download solutions PDF");
-      console.error("Failed to download solutions PDF:", err);
     } finally {
       setDownloadingSolutions(false);
     }
@@ -255,6 +283,9 @@ export default function StudySetPage() {
             </button>
           </div>
         </div>
+        <TaskProgress state={generateProgress.state} />
+        <TaskProgress state={examProgress.state} />
+        <TaskProgress state={solutionsProgress.state} />
         {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
       </div>
 
