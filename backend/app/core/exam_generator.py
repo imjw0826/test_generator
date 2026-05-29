@@ -177,7 +177,6 @@ def _build_exam_tex(
         if korean_font:
             preamble += [
                 rf"\setmainfont{{{korean_font}}}",
-                r"\XeTeXlinebreaklocale """,   # disable locale-aware breaking
             ]
     if use_cjk:
         preamble += [r"\usepackage{CJKutf8}"]
@@ -295,7 +294,10 @@ def _compile_tex(
             timeout=90,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"LaTeX failed: {(result.stderr or result.stdout)[-1200:]}")
+            log = (result.stderr or result.stdout)
+            # Try to extract the failing line from the .tex file for easier debugging.
+            context = _extract_tex_error_context(tex_path, log)
+            raise RuntimeError(f"LaTeX failed: {log[-1200:]}{context}")
 
     pdf_path = work_dir / f"{stem}.pdf"
     if not pdf_path.exists():
@@ -339,6 +341,25 @@ def _build_tex_env(work_dir: Path) -> dict:
     """))
     env["FONTCONFIG_FILE"] = str(minimal)
     return env
+
+
+def _extract_tex_error_context(tex_path: Path, log: str) -> str:
+    """Return a snippet of the .tex file around the reported error line, if found."""
+    try:
+        match = re.search(r"exam\.tex:(\d+):", log)
+        if not match:
+            return ""
+        lineno = int(match.group(1))
+        lines = tex_path.read_text(encoding="utf-8").splitlines()
+        start = max(0, lineno - 3)
+        end = min(len(lines), lineno + 2)
+        snippet = "\n".join(
+            f"  {'>>>' if i + 1 == lineno else '   '} {i + 1}: {lines[i]}"
+            for i in range(start, end)
+        )
+        return f"\n\nContext around line {lineno}:\n{snippet}"
+    except Exception:
+        return ""
 
 
 def _find_korean_font() -> str | None:
@@ -403,14 +424,19 @@ MATH_PATTERN = re.compile(r"(\\\(.+?\\\)|\\\[.+?\\\]|\$\$.+?\$\$|\$.+?\$)", re.D
 
 
 def _latex_text(value: str) -> str:
+    # Split into math and non-math segments.  Apply \n→\par only to
+    # non-math segments — putting \par inside a math environment (\[…\] or
+    # \(…\)) causes "Missing $ inserted" errors in XeTeX/pdfTeX.
     pieces: list[str] = []
     last = 0
     for match in MATH_PATTERN.finditer(value):
-        pieces.append(_latex_plain_text(value[last:match.start()]))
-        pieces.append(match.group(0))
+        non_math = _latex_plain_text(value[last:match.start()])
+        pieces.append(non_math.replace("\n", "\\par\n"))
+        pieces.append(match.group(0))          # math: pass through unchanged
         last = match.end()
-    pieces.append(_latex_plain_text(value[last:]))
-    return "".join(pieces).replace("\n", r"\par " + "\n")
+    non_math = _latex_plain_text(value[last:])
+    pieces.append(non_math.replace("\n", "\\par\n"))
+    return "".join(pieces)
 
 
 def _latex_plain_text(value: str) -> str:
