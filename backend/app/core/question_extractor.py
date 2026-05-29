@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from pathlib import Path
 
 import anthropic
@@ -100,11 +99,58 @@ def _build_user_content(text: str, page_number: int, page_image_base64: str | No
 
 
 def _repair_json_escapes(raw: str) -> str:
-    # Valid JSON escape chars after backslash: " \ / b f n r t u(XXXX)
-    # LaTeX commands (frac, sqrt, left-paren, left-bracket, etc.) use bare
-    # backslashes that are illegal in JSON.  Double them so json.loads succeeds.
-    # Step 1: double any backslash NOT followed by a valid JSON escape char
-    fixed = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
-    # Step 2: fix \u not followed by exactly 4 hex digits (e.g. \underline)
-    fixed = re.sub(r'\\u(?![0-9a-fA-F]{4})', r'\\\\u', fixed)
-    return fixed
+    """Scan character-by-character and double any backslash that does not form
+    a valid JSON escape sequence.
+
+    Valid JSON escapes after backslash:
+      "  \\  /  b  f  n  r  t  uXXXX (exactly 4 hex digits)
+
+    LaTeX commands like \\frac, \\sqrt, \\(, \\[ contain backslashes that are
+    illegal in JSON strings.  This function fixes them so json.loads succeeds.
+
+    Regex-based approaches fail when the LLM has already doubled some
+    backslashes (e.g. \\\\sqrt) because the regex incorrectly re-processes
+    the second backslash.  A character-by-character scanner avoids that.
+    """
+    _SIMPLE = frozenset('"' + '\\' + '/' + 'b' + 'f' + 'n' + 'r' + 't')
+    _HEX = frozenset('0123456789abcdefABCDEF')
+
+    out: list[str] = []
+    i = 0
+    n = len(raw)
+    while i < n:
+        ch = raw[i]
+        if ch != '\\':
+            out.append(ch)
+            i += 1
+            continue
+
+        # ch is a backslash — decide whether it starts a valid escape
+        if i + 1 >= n:
+            # trailing backslash — double it
+            out.append('\\\\')
+            i += 1
+            continue
+
+        nxt = raw[i + 1]
+        if nxt in _SIMPLE:
+            # valid 2-char escape: keep as-is
+            out.append(ch)
+            out.append(nxt)
+            i += 2
+        elif nxt == 'u':
+            # valid only if followed by exactly 4 hex digits
+            hex_slice = raw[i + 2: i + 6]
+            if len(hex_slice) == 4 and all(c in _HEX for c in hex_slice):
+                out.append(raw[i: i + 6])
+                i += 6
+            else:
+                # invalid \uXXX — double the backslash, leave 'u' for next iter
+                out.append('\\\\')
+                i += 1
+        else:
+            # any other char after backslash is invalid — double the backslash
+            out.append('\\\\')
+            i += 1
+
+    return ''.join(out)
