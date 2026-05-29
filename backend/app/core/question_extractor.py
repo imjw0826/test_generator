@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from pathlib import Path
 
 import anthropic
@@ -32,7 +33,7 @@ def extract_questions_from_block(
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]
 
-            questions = json.loads(raw)
+            questions = json.loads(_repair_json_escapes(raw))
             if not isinstance(questions, list):
                 raise ValueError("Expected a JSON array")
 
@@ -96,3 +97,14 @@ def _build_user_content(text: str, page_number: int, page_image_base64: str | No
         "Extract all student-solvable questions/problems from this text.\n\n"
         f"{text}"
     )
+
+
+def _repair_json_escapes(raw: str) -> str:
+    # Valid JSON escape chars after backslash: " \ / b f n r t u(XXXX)
+    # LaTeX commands (frac, sqrt, left-paren, left-bracket, etc.) use bare
+    # backslashes that are illegal in JSON.  Double them so json.loads succeeds.
+    # Step 1: double any backslash NOT followed by a valid JSON escape char
+    fixed = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
+    # Step 2: fix \u not followed by exactly 4 hex digits (e.g. \underline)
+    fixed = re.sub(r'\\u(?![0-9a-fA-F]{4})', r'\\\\u', fixed)
+    return fixed

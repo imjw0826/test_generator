@@ -6,6 +6,7 @@ Rules:
 - Exclude explanations, examples, captions, answers, and solutions.
 - Keep sub-parts with their parent question.
 - Reconstruct math as valid LaTeX: inline `\( ... \)`, display `\[ ... \]`.
+- In JSON strings backslashes must be doubled: write `\\(`, `\\)`, `\\[`, `\\]`, `\\frac`, `\\sqrt`, etc.
 - Preserve original numbering, wording, units, and line breaks where possible.
 - If a question uses a figure marker like `[[FIGURE id="p001_fig01" ...]]`, put that ID in `figure_ids`.
 
