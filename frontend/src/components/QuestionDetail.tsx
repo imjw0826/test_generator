@@ -1,9 +1,10 @@
 "use client";
 
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
+
 import { useState } from "react";
 import MathText from "@/components/MathText";
-import { API_BASE, apiFetch } from "@/lib/api";
+import { apiFetch, resolveApiAssetUrl } from "@/lib/api";
 import { QuestionInfo, QuestionTranslationResponse } from "@/lib/types";
 
 interface QuestionDetailProps {
@@ -77,16 +78,15 @@ export default function QuestionDetail({ question, onClose }: QuestionDetailProp
         {figures.length > 0 && (
           <div className="mb-4 grid gap-3">
             {figures.map((figure) => {
-              const src = figure.url.startsWith("http") ? figure.url : `${API_BASE}${figure.url}`;
+              const src = resolveApiAssetUrl(figure.url);
               return (
                 <figure key={figure.id} className="overflow-hidden rounded border border-zinc-200 dark:border-zinc-700">
-                  <div className="relative h-96 w-full bg-white">
-                    <Image
+                  <div className="flex min-h-40 w-full items-center justify-center bg-white p-3">
+                    <img
                       src={src}
                       alt={figure.label ?? figure.id}
-                      fill
-                      sizes="(max-width: 768px) 90vw, 672px"
-                      className="object-contain"
+                      className="max-h-[28rem] max-w-full object-contain"
+                      loading="lazy"
                     />
                   </div>
                   <figcaption className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700">

@@ -12,6 +12,15 @@ function llmHeaders(): Record<string, string> {
   return { "X-LLM-Provider": getSelectedLlmProvider() };
 }
 
+export function resolveApiAssetUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  const base = API_BASE.replace(/\/$/, "");
+  const path = url.startsWith("/") ? url : `/${url}`;
+  return `${base}${path}`;
+}
+
 export async function apiFetch<T>(
   path: string,
   options?: RequestInit
