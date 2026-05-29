@@ -16,12 +16,13 @@ def extract_questions_from_block(
     text: str,
     page_number: int,
     page_image_base64: str | None = None,
+    figures: list[dict] | None = None,
 ) -> list[dict]:
     client, model = create_messages_client(settings.llm_model)
 
     for attempt in range(settings.llm_max_retries):
         try:
-            content = _build_user_content(text, page_number, page_image_base64)
+            content = _build_user_content(text, page_number, page_image_base64, figures)
             response = client.messages.create(
                 model=model,
                 max_tokens=4096,
@@ -72,13 +73,28 @@ def extract_questions_from_block(
     return []
 
 
-def _build_user_content(text: str, page_number: int, page_image_base64: str | None):
+def _build_user_content(
+    text: str,
+    page_number: int,
+    page_image_base64: str | None,
+    figures: list[dict] | None = None,
+):
     if page_image_base64:
         text_content = (
             f"Page {page_number}\n\n"
             "Extract all student-solvable questions/problems from this page image. "
             "Read math, numbering, and figures directly from the image."
         )
+        manifest = _figure_manifest(figures)
+        if manifest:
+            text_content += (
+                "\n\nFigures detected on this page (each entry is id + location in the "
+                "image). For every question, set figure_ids to the IDs of the figures "
+                "that visually belong to that question, judging by their position. A "
+                "figure usually belongs to the question whose text it sits within or "
+                "directly beside. Use only IDs from this list; omit unrelated ones.\n"
+                f"{manifest}"
+            )
         return [
             {
                 "type": "image",
@@ -96,6 +112,19 @@ def _build_user_content(text: str, page_number: int, page_image_base64: str | No
         "Extract all student-solvable questions/problems from this text.\n\n"
         f"{text}"
     )
+
+
+def _figure_manifest(figures: list[dict] | None) -> str:
+    if not figures:
+        return ""
+    lines = []
+    for figure in figures:
+        figure_id = str(figure.get("id", "")).strip()
+        if not figure_id:
+            continue
+        position = figure.get("position") or "position unknown"
+        lines.append(f'- id="{figure_id}" — {position}')
+    return "\n".join(lines)
 
 
 def _repair_json_escapes(raw: str) -> str:

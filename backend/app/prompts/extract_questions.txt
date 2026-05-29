@@ -9,6 +9,7 @@ Rules:
 - In JSON strings backslashes must be doubled: write `\\(`, `\\)`, `\\[`, `\\]`, `\\frac`, `\\sqrt`, etc.
 - Preserve original numbering, wording, units, and line breaks where possible.
 - If a question uses a figure marker like `[[FIGURE id="p001_fig01" ...]]`, put that ID in `figure_ids`.
+- If the message lists figures detected on the page (id + location), assign each question the IDs of the figures that visually belong to it, judged by their position in the image. Only use IDs from that list.
 
 Return only a valid JSON array:
 {

@@ -90,6 +90,7 @@ def _do_extract(
         raise ValueError("No parsed pages found for the selected chapters.")
 
     figure_lookup = _build_figure_lookup(pages)
+    page_figures = _build_page_figures(pages)
     candidates = _build_extraction_candidates(pages)
     logger.info(f"Prepared {len(candidates)} extraction page blocks for document {document.id}")
 
@@ -111,6 +112,7 @@ def _do_extract(
             block.text,
             block.page_number,
             page_image_base64=page_image,
+            figures=page_figures.get(block.page_number),
         )
         for q_data in extracted:
             chapter = block.chapter_hint
@@ -231,6 +233,15 @@ def _build_figure_lookup(pages: list[ParsedPage]) -> dict[str, dict]:
             if figure_id:
                 figure_lookup[figure_id] = figure
     return figure_lookup
+
+
+def _build_page_figures(pages: list[ParsedPage]) -> dict[int, list[dict]]:
+    page_figures: dict[int, list[dict]] = {}
+    for page in pages:
+        figures = [f for f in (page.figures or []) if f.get("id")]
+        if figures:
+            page_figures[page.page_number] = figures
+    return page_figures
 
 
 def _resolve_figure_refs(q_data: dict, figure_lookup: dict[str, dict]) -> list[dict]:

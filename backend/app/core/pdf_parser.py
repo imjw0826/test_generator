@@ -13,6 +13,7 @@ class PageFigure:
     path: str
     url: str
     bbox: list[float]
+    position: str | None = None
     label: str | None = None
     caption: str | None = None
 
@@ -74,7 +75,15 @@ def _extract_page_content(
             if text:
                 lines.append(text)
         elif block_type == 1 and figure_output_dir and figure_url_prefix:
-            figure = _save_figure_block(block, page_number, len(figures) + 1, figure_output_dir, figure_url_prefix)
+            figure = _save_figure_block(
+                block,
+                page_number,
+                len(figures) + 1,
+                figure_output_dir,
+                figure_url_prefix,
+                page_width=page.rect.width,
+                page_height=page.rect.height,
+            )
             if figure:
                 figures.append(figure)
                 lines.append(_figure_marker(figure))
@@ -129,9 +138,17 @@ def _save_figure_block(
     figure_index: int,
     figure_output_dir: Path,
     figure_url_prefix: str,
+    page_width: float = 0.0,
+    page_height: float = 0.0,
 ) -> PageFigure | None:
     image_bytes = block.get("image")
     if not image_bytes:
+        return None
+
+    bbox = [round(float(v), 2) for v in block.get("bbox", [])]
+    if _is_full_bleed(bbox, page_width):
+        # Full-width background bands are page watermarks / decorative layers,
+        # not question diagrams. Skipping them keeps figure refs clean.
         return None
 
     ext = _safe_image_ext(str(block.get("ext") or "png"))
@@ -141,14 +158,31 @@ def _save_figure_block(
     figure_path = figure_output_dir / file_name
     figure_path.write_bytes(image_bytes)
 
-    bbox = [round(float(v), 2) for v in block.get("bbox", [])]
     return PageFigure(
         id=figure_id,
         page_number=page_number,
         path=str(figure_path),
         url=f"{figure_url_prefix.rstrip('/')}/{file_name}",
         bbox=bbox,
+        position=_position_hint(bbox, page_width, page_height),
     )
+
+
+def _is_full_bleed(bbox: list[float], page_width: float) -> bool:
+    if page_width <= 0 or len(bbox) < 4:
+        return False
+    x0, x1 = bbox[0], bbox[2]
+    return x0 <= page_width * 0.05 and x1 >= page_width * 0.95
+
+
+def _position_hint(bbox: list[float], page_width: float, page_height: float) -> str | None:
+    if page_width <= 0 or page_height <= 0 or len(bbox) < 4:
+        return None
+    x0 = round(bbox[0] / page_width * 100)
+    x1 = round(bbox[2] / page_width * 100)
+    y0 = round(bbox[1] / page_height * 100)
+    y1 = round(bbox[3] / page_height * 100)
+    return f"x {x0}-{x1}% of width, y {y0}-{y1}% of height (top=0%)"
 
 
 def _safe_image_ext(ext: str) -> str:
