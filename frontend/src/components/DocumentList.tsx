@@ -43,6 +43,7 @@ export default function DocumentList({
   const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
   const [editingSubjectValue, setEditingSubjectValue] = useState("");
   const [extractProgress, setExtractProgress] = useState<Record<number, ExtractionProgress>>({});
+  const [actionError, setActionError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -76,6 +77,7 @@ export default function DocumentList({
     const docId = doc.id;
     setBusyId(docId);
     setBusyAction(action);
+    setActionError(null);
     try {
       const chapters = selectedChapters[docId] ?? [];
       const chapterRanges = sortedOutline(doc)
@@ -106,6 +108,7 @@ export default function DocumentList({
       }
     } catch (err) {
       console.error(`${action} failed:`, err);
+      setActionError(`${doc.original_name}: ${errorDetail(err)}`);
     } finally {
       setBusyId(null);
       setBusyAction(null);
@@ -156,6 +159,7 @@ export default function DocumentList({
       onDocumentDeleted(doc.id);
     } catch (err) {
       console.error("delete failed:", err);
+      setActionError(`${doc.original_name}: ${errorDetail(err)}`);
     } finally {
       setBusyId(null);
       setBusyAction(null);
@@ -232,6 +236,14 @@ export default function DocumentList({
 
   return (
     <>
+    {actionError && (
+      <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <span>{actionError}</span>
+        <button onClick={() => setActionError(null)} className="text-xs underline">
+          Dismiss
+        </button>
+      </div>
+    )}
     <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
       <table className="w-full text-left text-sm">
         <thead className="bg-zinc-50 dark:bg-zinc-800">
@@ -470,4 +482,16 @@ export default function DocumentList({
     )}
     </>
   );
+}
+
+function errorDetail(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const body = message.replace(/^API error \d+:\s*/, "");
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed?.detail === "string") return parsed.detail;
+  } catch {
+    // not JSON
+  }
+  return body;
 }

@@ -155,8 +155,8 @@ def _build_exam_tex(
     ]
     subtitle = f"{len(questions)} questions | Source: {PROJECT_NAME} ({PROJECT_URL})"
 
-    # Detect Korean characters anywhere in the output.
-    all_text = title + " ".join(q.question_text or "" for q in questions)
+    # Detect Korean characters anywhere in the output, including generated solutions.
+    all_text = title + " ".join(question_blocks)
     needs_korean = bool(_HANGUL_RE.search(all_text))
 
     # fontspec/kotex work with XeTeX-based engines (tectonic, xelatex, lualatex).
@@ -220,12 +220,12 @@ def _question_block(
     lines.extend(_figure_blocks(refs, figure_numbers))
 
     if include_answers:
-        lines.append(r"\textbf{Answer.} " + _latex_text(_stored_answer(question)))
+        lines.append("\n" + r"\textbf{Answer.} " + _latex_text(_stored_answer(question)))
 
     question_id = getattr(question, "id", None)
     solution = (solutions_by_question_id or {}).get(question_id)
     if solution:
-        lines.append(r"\textbf{Solution.} " + _latex_text(solution))
+        lines.append("\n" + r"\textbf{Solution.} " + _latex_text(solution))
 
     return "\n".join(lines)
 

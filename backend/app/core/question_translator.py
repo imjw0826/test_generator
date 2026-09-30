@@ -1,7 +1,7 @@
 import logging
 
 from app.config import settings
-from app.core.llm_runtime import create_messages_client
+from app.core.llm_runtime import create_text_message
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +14,13 @@ Return only the translated question text."""
 
 
 def translate_question_to_korean(question_text: str) -> str:
-    client, model = create_messages_client(settings.llm_translation_model)
-    response = client.messages.create(
-        model=model,
-        max_tokens=4096,
+    translated = create_text_message(
+        settings.llm_translation_model,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": question_text}],
+        max_tokens=8000,
+        effort=settings.llm_translation_effort,
     )
-    translated = response.content[0].text.strip()
     if translated.startswith("```"):
         translated = translated.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     return _cleanup_translation(translated)

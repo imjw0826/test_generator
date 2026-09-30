@@ -15,10 +15,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     deepseek_api_key: str = ""
     deepseek_anthropic_base_url: str = "https://api.deepseek.com/anthropic"
-    llm_model: str = "claude-sonnet-4-6"
-    llm_translation_model: str = "claude-sonnet-4-6"
-    llm_outline_model: str = "claude-sonnet-4-6"
-    llm_solution_model: str = "claude-opus-4-7"
+    llm_model: str = "claude-sonnet-5-5"
+    llm_translation_model: str = "claude-sonnet-5-5"
+    llm_outline_model: str = "claude-sonnet-5-5"
+    llm_solution_model: str = "claude-opus-5-5"
+    # Claude effort levels: low | medium | high | xhigh | max
+    llm_extraction_effort: str = "medium"
+    llm_translation_effort: str = "low"
+    llm_outline_effort: str = "low"
+    llm_solution_effort: str = "high"
     llm_max_retries: int = 3
     llm_include_page_image: bool = True
     llm_page_image_zoom: float = 2.0

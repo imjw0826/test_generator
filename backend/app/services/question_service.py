@@ -100,6 +100,7 @@ def _do_extract(
     _extraction_progress[document.id] = {"current": 0, "total": total_candidates}
 
     extracted_payloads: list[ExtractedQuestionData] = []
+    extracted_pages: set[int] = set()
     for i, block in enumerate(candidates):
         _extraction_progress[document.id]["current"] = i + 1
 
@@ -114,6 +115,7 @@ def _do_extract(
             page_image_base64=page_image,
             figures=page_figures.get(block.page_number),
         )
+        extracted_pages.add(block.page_number)
         for q_data in extracted:
             chapter = block.chapter_hint
             figure_refs = _resolve_figure_refs(q_data, figure_lookup)
@@ -128,7 +130,15 @@ def _do_extract(
                 confidence=q_data.get("confidence", 0.5),
             ))
 
-    db.query(Question).filter(Question.source_document_id == document.id).delete()
+    if not extracted_pages:
+        raise ValueError("No pages could be sent for extraction (page images unavailable).")
+
+    # Replace only questions from pages that were re-extracted, so a partial run
+    # (other chapters, unrenderable pages) never wipes questions it did not redo.
+    db.query(Question).filter(
+        Question.source_document_id == document.id,
+        Question.page_start.in_(extracted_pages),
+    ).delete(synchronize_session=False)
 
     all_questions: list[Question] = []
     for payload in extracted_payloads:

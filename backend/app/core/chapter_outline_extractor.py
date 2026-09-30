@@ -3,7 +3,7 @@ import logging
 import re
 
 from app.config import settings
-from app.core.llm_runtime import create_messages_client
+from app.core.llm_runtime import LlmResponseError, create_text_message
 from app.models.parsed_page import ParsedPage
 
 logger = logging.getLogger(__name__)
@@ -38,14 +38,17 @@ def detect_chapter_outline_with_sonnet(pages: list[ParsedPage], document_path: s
     if len(local_outline) >= 2:
         return local_outline
 
-    client, model = create_messages_client(settings.llm_outline_model)
-    response = client.messages.create(
-        model=model,
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": text}],
-    )
-    raw = response.content[0].text.strip()
+    try:
+        raw = create_text_message(
+            settings.llm_outline_model,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": text}],
+            max_tokens=16000,
+            effort=settings.llm_outline_effort,
+        )
+    except LlmResponseError as e:
+        logger.warning("Chapter outline LLM call returned no usable output: %s", e)
+        return local_outline
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]
 
@@ -97,7 +100,7 @@ def _build_outline_input(pages: list[ParsedPage]) -> str:
 def _normalize_contents_page_text(text: str) -> str:
     lines = []
     for line in text.splitlines():
-        cleaned = re.sub(r"[ \t]+", " ", line).strip()
+        cleaned = line.replace("\t", " ").strip()
         if cleaned:
             lines.append(cleaned)
     return "\n".join(lines)
@@ -110,7 +113,7 @@ def _entries_from_payload(payload) -> list[dict]:
             continue
         title = str(item.get("title") or "").strip()
         page_label = str(item.get("page_label") or "").strip()
-        if title and not _is_excluded_contents_title(title):
+        if _is_valid_contents_title(title) and not _is_excluded_contents_title(title):
             entries.append({"title": _clean_contents_title(title), "page_label": page_label})
     return entries
 
@@ -170,7 +173,7 @@ def _iter_numbered_contents_entries(text: str) -> list[dict]:
                 break
             if _looks_like_entry_start(next_line):
                 break
-            page_match = re.match(r"^(?P<title>.*?)(?:\.{2,}\s*)?(?P<page>\d{1,4})$", next_line)
+            page_match = re.match(r"^(?P<title>.*?)(?:\.{2,}\s*|\s{2,})(?P<page>\d{1,4})$", next_line)
             if page_match and page_match.group("title").strip():
                 title_parts.append(page_match.group("title").strip(" ."))
                 page_label = page_match.group("page")
@@ -185,7 +188,7 @@ def _iter_numbered_contents_entries(text: str) -> list[dict]:
 
         if page_label and title_parts:
             title = _clean_contents_title(f"{number} {' '.join(title_parts)}")
-            if title and not _is_excluded_contents_title(title):
+            if _is_valid_contents_title(title) and not _is_excluded_contents_title(title):
                 candidates.append({"title": title, "page_label": page_label})
             i = j
             continue
@@ -204,7 +207,7 @@ def _entry_from_single_line(line: str) -> dict | None:
     if not match:
         return None
     title = _clean_contents_title(match.group("title"))
-    if _is_excluded_contents_title(title):
+    if not _is_valid_contents_title(title) or _is_excluded_contents_title(title):
         return None
     return {"title": title, "page_label": match.group("page")} if title else None
 
@@ -215,18 +218,24 @@ def _looks_like_entry_start(line: str) -> bool:
 
 def _select_contents_pages(pages: list[ParsedPage]) -> list[ParsedPage]:
     front_matter = pages[: min(len(pages), 40)]
-    scored: list[tuple[int, ParsedPage]] = []
+    explicit_contents: list[tuple[int, ParsedPage]] = []
+    likely_contents: list[tuple[int, ParsedPage]] = []
     for page in front_matter:
         text = page.raw_text or ""
-        lower = text.lower()
-        score = 0
-        if re.search(r"\b(contents|table of contents)\b", lower):
-            score += 5
+        has_contents_title = _has_contents_heading(text)
+        looks_like_contents = _looks_like_contents_page(text)
+        if not has_contents_title and not looks_like_contents:
+            continue
+
+        score = 5 if has_contents_title else 0
         score += min(5, len(re.findall(r"\.{2,}\s*\d+", text)))
         score += min(4, len(re.findall(r"^\s*\d+(?:\.\d+)*\s+.{3,80}\s+\d+\s*$", text, re.MULTILINE)))
-        if score > 0:
-            scored.append((score, page))
+        if has_contents_title:
+            explicit_contents.append((score, page))
+        else:
+            likely_contents.append((score, page))
 
+    scored = explicit_contents or likely_contents
     if not scored:
         return []
 
@@ -247,11 +256,19 @@ def _select_contents_pages(pages: list[ParsedPage]) -> list[ParsedPage]:
 
 
 def _looks_like_contents_page(text: str) -> bool:
-    if re.search(r"\b(contents|table of contents)\b", text, re.IGNORECASE):
+    if _has_contents_heading(text):
         return True
     numbered_entry_count = len(re.findall(r"^\s*(?:CHAPTER\s+\d+|\d+(?:\.\d+)+)\b", text, re.MULTILINE | re.IGNORECASE))
     page_number_line_count = len(re.findall(r"^\s*\d{1,4}\s*$", text, re.MULTILINE))
     return numbered_entry_count >= 3 and page_number_line_count >= 3
+
+
+def _has_contents_heading(text: str) -> bool:
+    for line in text.splitlines()[:12]:
+        compact = re.sub(r"[^A-Za-z]+", "", line).lower()
+        if compact in {"contents", "tableofcontents"}:
+            return True
+    return False
 
 
 def _resolve_contents_entries_to_page_ranges(
@@ -416,6 +433,13 @@ def _clean_contents_title(title: str) -> str:
     title = re.sub(r"\.{2,}\s*\d+\s*$", "", title)
     title = re.sub(r"\s+\d+\s*$", "", title)
     return re.sub(r"\s+", " ", title).strip(" -:")
+
+
+def _is_valid_contents_title(title: str) -> bool:
+    cleaned = _clean_contents_title(title)
+    if not cleaned or len(cleaned) > 180:
+        return False
+    return bool(re.match(r"^(?:CHAPTER\s+\d+\b|\d+(?:\.\d+)+\b)", cleaned, re.IGNORECASE))
 
 
 def _is_excluded_contents_title(title: str) -> bool:

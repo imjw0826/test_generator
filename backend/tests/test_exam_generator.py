@@ -47,3 +47,19 @@ def test_build_exam_tex_includes_header_question_and_figure_labels():
     assert r"Solve \(x^2=4\)." in tex
     assert "Uses: Figure 1." in tex
     assert "No stored answer is available." in tex
+
+
+def test_build_exam_tex_loads_korean_font_for_korean_solutions(monkeypatch):
+    monkeypatch.setattr("app.core.exam_generator._find_korean_font", lambda: "Apple SD Gothic Neo")
+    question = SimpleNamespace(id=7, question_text=r"Solve \(x^2=4\).", figure_refs=[])
+
+    tex = _build_exam_tex(
+        title="Math",
+        questions=[question],
+        include_answers=False,
+        solutions_by_question_id={7: r"양변에 제곱근을 취하면 \(x=\pm 2\)이다."},
+        engine="tectonic",
+    )
+
+    assert r"\setmainfont{Apple SD Gothic Neo}" in tex
+    assert "\n\n" + r"\textbf{Solution.}" in tex

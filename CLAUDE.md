@@ -16,7 +16,7 @@ Product focus: reliable PDF question extraction.
 - Backend: FastAPI, SQLAlchemy 2.0, SQLite
 - Frontend: Next.js App Router (React 19)
 - PDF parsing: PyMuPDF (`fitz`)
-- LLM: Anthropic Claude (`claude-sonnet-4-6` extraction, `claude-opus-4-7` solutions). DeepSeek is available via the Anthropic-compatible base URL when `X-LLM-Provider: deepseek` is sent.
+- LLM: Anthropic Claude (`claude-sonnet-5-5` extraction/outline/translation, `claude-opus-5-5` solutions; adaptive thinking with per-task `effort`, called through `llm_runtime.create_text_message`). DeepSeek is available via the Anthropic-compatible base URL when `X-LLM-Provider: deepseek` is sent.
 - Math rendering: KaTeX
 - Exam PDF generation: local LaTeX engine — `tectonic` (preferred), `xelatex`, `lualatex`, or `pdflatex`. No LLM call.
 

@@ -11,6 +11,15 @@ CHAPTER_PATTERNS = [
 
 QUESTION_LIKE = re.compile(r"^\s*(?:\d{1,3}[\.)]\s|[a-z][\.)]\s|Q\d+\b)", re.IGNORECASE)
 
+DOTTED_NUMBER = re.compile(r"^\s*\d+\.\d+\s")
+# A page with this many "6.13 ..." style lines is a problem list, not a section start.
+PROBLEM_LIST_MIN_LINES = 3
+# Wrapped problem statements often break after one of these words.
+TRAILING_FUNCTION_WORDS = {
+    "a", "an", "and", "are", "as", "at", "by", "for", "from", "in", "is",
+    "of", "on", "or", "the", "to", "was", "with",
+}
+
 
 def detect_page_chapters(pages: list[PageText]) -> dict[int, str | None]:
     chapters: dict[int, str | None] = {}
@@ -27,7 +36,10 @@ def detect_page_chapters(pages: list[PageText]) -> dict[int, str | None]:
 
 def _detect_chapter_on_page(text: str) -> str | None:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
+    is_problem_list = sum(1 for line in lines if DOTTED_NUMBER.match(line)) >= PROBLEM_LIST_MIN_LINES
     for line in lines[:25]:
+        if is_problem_list and DOTTED_NUMBER.match(line):
+            continue
         if _is_heading_candidate(line):
             return _clean_heading(line)
     return None
@@ -38,7 +50,18 @@ def _is_heading_candidate(line: str) -> bool:
         return False
     if len(line) > 140:
         return False
+    if _looks_like_sentence(line):
+        return False
     return any(pattern.match(line) for pattern in CHAPTER_PATTERNS)
+
+
+def _looks_like_sentence(line: str) -> bool:
+    """Numbered problem statements read as prose; section headings do not."""
+    stripped = line.rstrip()
+    if stripped.endswith((".", ",", "?", ";")):
+        return True
+    last_word = stripped.rsplit(None, 1)[-1].lower()
+    return last_word in TRAILING_FUNCTION_WORDS
 
 
 def _clean_heading(line: str) -> str:

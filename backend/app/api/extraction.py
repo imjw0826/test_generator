@@ -1,3 +1,5 @@
+import os
+
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -16,6 +18,14 @@ router = APIRouter(prefix="/api", tags=["extraction"])
 class ExtractRequest(BaseModel):
     chapters: list[str] | None = None
     chapter_ranges: list[dict] | None = None
+
+
+def _require_source_file(doc) -> None:
+    if not os.path.exists(doc.file_path):
+        raise HTTPException(
+            409,
+            f"Source PDF for '{doc.original_name}' is missing on disk. Re-upload the document.",
+        )
 
 
 def _handle_llm_error(e: Exception, action: str):
@@ -41,6 +51,7 @@ def process_doc(document_id: int, db: Session = Depends(get_db)):
     doc = get_document(db, document_id)
     if not doc:
         raise HTTPException(404, "Document not found.")
+    _require_source_file(doc)
 
     try:
         doc = process_document(db, doc)
@@ -62,6 +73,7 @@ def extract_questions(
 
     if doc.status.value not in ("parsed", "extracted"):
         raise HTTPException(400, "Document must be parsed before extraction. Run /process first.")
+    _require_source_file(doc)
 
     selected_chapters = request.chapters if request else None
     selected_ranges = request.chapter_ranges if request else None
@@ -88,6 +100,7 @@ def reprocess_doc(document_id: int, db: Session = Depends(get_db)):
     doc = get_document(db, document_id)
     if not doc:
         raise HTTPException(404, "Document not found.")
+    _require_source_file(doc)
 
     try:
         doc = process_document(db, doc)

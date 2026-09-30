@@ -5,7 +5,7 @@ from pathlib import Path
 import anthropic
 
 from app.config import settings
-from app.core.llm_runtime import create_messages_client
+from app.core.llm_runtime import create_text_message
 
 logger = logging.getLogger(__name__)
 
@@ -18,18 +18,16 @@ def extract_questions_from_block(
     page_image_base64: str | None = None,
     figures: list[dict] | None = None,
 ) -> list[dict]:
-    client, model = create_messages_client(settings.llm_model)
-
     for attempt in range(settings.llm_max_retries):
         try:
             content = _build_user_content(text, page_number, page_image_base64, figures)
-            response = client.messages.create(
-                model=model,
-                max_tokens=4096,
+            raw = create_text_message(
+                settings.llm_model,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": content}],
+                max_tokens=16000,
+                effort=settings.llm_extraction_effort,
             )
-            raw = response.content[0].text.strip()
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]
 
