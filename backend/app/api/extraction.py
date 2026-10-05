@@ -1,7 +1,7 @@
 import os
 
 import anthropic
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,16 @@ def _require_source_file(doc) -> None:
         )
 
 
+def _pdf_inspector_override(value: str | None) -> bool | None:
+    """`X-PDF-Inspector: on|off` overrides PDF_STRUCTURE_ANALYSIS for one request."""
+    normalized = (value or "").strip().lower()
+    if normalized in {"on", "true", "1"}:
+        return True
+    if normalized in {"off", "false", "0"}:
+        return False
+    return None
+
+
 def _handle_llm_error(e: Exception, action: str):
     """Convert LLM/API errors into appropriate HTTP exceptions."""
     if isinstance(e, anthropic.APIStatusError):
@@ -47,14 +57,18 @@ def get_progress(document_id: int):
 
 
 @router.post("/documents/{document_id}/process", response_model=DocumentResponse)
-def process_doc(document_id: int, db: Session = Depends(get_db)):
+def process_doc(
+    document_id: int,
+    db: Session = Depends(get_db),
+    x_pdf_inspector: str | None = Header(default=None),
+):
     doc = get_document(db, document_id)
     if not doc:
         raise HTTPException(404, "Document not found.")
     _require_source_file(doc)
 
     try:
-        doc = process_document(db, doc)
+        doc = process_document(db, doc, analyze_structure=_pdf_inspector_override(x_pdf_inspector))
     except Exception as e:
         _handle_llm_error(e, "Processing")
 
@@ -95,7 +109,11 @@ def extract_questions(
 
 
 @router.post("/documents/{document_id}/reprocess", response_model=DocumentResponse)
-def reprocess_doc(document_id: int, db: Session = Depends(get_db)):
+def reprocess_doc(
+    document_id: int,
+    db: Session = Depends(get_db),
+    x_pdf_inspector: str | None = Header(default=None),
+):
     """Re-parse and re-extract a document without re-uploading."""
     doc = get_document(db, document_id)
     if not doc:
@@ -103,7 +121,7 @@ def reprocess_doc(document_id: int, db: Session = Depends(get_db)):
     _require_source_file(doc)
 
     try:
-        doc = process_document(db, doc)
+        doc = process_document(db, doc, analyze_structure=_pdf_inspector_override(x_pdf_inspector))
         if doc.pdf_scope != PdfScope.full:
             extract_questions_for_document(db, doc)
     except Exception as e:

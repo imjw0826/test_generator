@@ -101,6 +101,12 @@ def _apply_structure(pages: list[PageText], structure) -> None:
         )
 
 
+def read_bookmarks(file_path: str) -> list[tuple[int, str, int]]:
+    """The PDF's own outline (bookmarks) as (level, title, 1-based page)."""
+    with fitz.open(file_path) as doc:
+        return [(int(level), str(title), int(page)) for level, title, page, *_ in doc.get_toc(simple=True)]
+
+
 def get_page_count(file_path: str) -> int:
     with fitz.open(file_path) as doc:
         return len(doc)

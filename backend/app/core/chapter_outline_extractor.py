@@ -9,6 +9,14 @@ from app.models.parsed_page import ParsedPage
 logger = logging.getLogger(__name__)
 
 MAX_CONTENTS_CONTINUATION_PAGES = 10
+# Bookmarks that never contain study material.
+BOOKMARK_SKIP_PATTERN = re.compile(
+    r"^(?:cover|front\s+cover|back\s+cover|half[-\s]?title|title(?:\s+page)?|copyright(?:\s+page)?|"
+    r"(?:table\s+of\s+)?contents|brief\s+contents|preface|foreword|acknowledge?ments?|dedication|"
+    r"index|subject\s+index|about\s+the\s+authors?|bibliography|references|page\s*\d+|p\.?\s*\d+)$",
+    re.IGNORECASE,
+)
+MIN_BOOKMARK_ENTRIES = 2
 # Separator between a contents title and its page number: dot leaders
 # ("....", ". . .") or a wide gap.
 LEADER = r"(?:(?:\s*\.){2,}\s*|\s{2,})"
@@ -75,6 +83,50 @@ def detect_chapter_outline_with_sonnet(pages: list[ParsedPage], document_path: s
 
     logger.warning("Text contents extraction returned no resolved entries.")
     return []
+
+
+def outline_from_bookmarks(bookmarks: list[tuple[int, str, int]], page_count: int) -> list[dict]:
+    """Outline from the PDF's own bookmarks, or [] when they are missing or unusable.
+
+    Each entry spans until the next bookmark at the same or a shallower level, so
+    a chapter's range covers its sections (and its end-of-chapter problems)."""
+    entries: list[tuple[int, str, int]] = []
+    for level, title, page in bookmarks:
+        title = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", title)).strip()
+        if not title or BOOKMARK_SKIP_PATTERN.match(title):
+            continue
+        if not 1 <= page <= page_count:
+            continue
+        entries.append((max(1, level), title, page))
+
+    if len(entries) < MIN_BOOKMARK_ENTRIES or len({page for _, _, page in entries}) < 2:
+        return []
+
+    outline: list[dict] = []
+    open_keys_by_level: dict[int, str] = {}
+    for index, (level, title, start_page) in enumerate(entries):
+        later_starts = [
+            page
+            for later_level, _, page in entries[index + 1:]
+            if later_level <= level and page > start_page
+        ]
+        end_page = min(later_starts) - 1 if later_starts else page_count
+        key = f"bookmark-{index}"
+        parent_levels = [existing for existing in open_keys_by_level if existing < level]
+        outline.append({
+            "title": title,
+            "start_page": start_page,
+            "end_page": end_page,
+            "page_label": None,
+            "level": level,
+            "key": key,
+            "parent_key": open_keys_by_level[max(parent_levels)] if parent_levels else None,
+        })
+        open_keys_by_level = {
+            existing: open_key for existing, open_key in open_keys_by_level.items() if existing < level
+        }
+        open_keys_by_level[level] = key
+    return outline
 
 
 def fallback_chapter_outline(pages: list[ParsedPage]) -> list[dict]:

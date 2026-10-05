@@ -1,6 +1,7 @@
 from app.core.chapter_outline_extractor import (
     _entries_from_payload,
     _iter_numbered_contents_entries,
+    outline_from_bookmarks,
     _resolve_contents_entries_to_page_ranges,
     _select_contents_pages,
 )
@@ -164,3 +165,30 @@ def test_chapter_starting_right_after_contents_is_not_swallowed_by_contents_wind
         ("1.2 Linear Maps", 5),
         ("CHAPTER 2 Matrices", 7),
     ]
+
+
+def test_bookmark_outline_skips_front_matter_and_invalid_pages():
+    bookmarks = [
+        (1, "Cover", 1),
+        (1, "Contents", 2),
+        (1, "  CHAPTER 1\nIntroduction ", 3),
+        (2, "Page 4", 4),
+        (2, "1.1 Basics", 4),
+        (1, "Broken link", -1),
+        (1, "CHAPTER 2 Methods", 9),
+        (1, "Index", 12),
+    ]
+
+    outline = outline_from_bookmarks(bookmarks, page_count=12)
+
+    assert [(item["title"], item["start_page"], item["end_page"]) for item in outline] == [
+        ("CHAPTER 1 Introduction", 3, 8),
+        ("1.1 Basics", 4, 8),
+        ("CHAPTER 2 Methods", 9, 12),
+    ]
+
+
+def test_bookmark_outline_is_rejected_when_it_cannot_split_the_document():
+    assert outline_from_bookmarks([], page_count=10) == []
+    assert outline_from_bookmarks([(1, "lecture.pdf", 1)], page_count=10) == []
+    assert outline_from_bookmarks([(1, "Part A", 1), (1, "Part B", 1)], page_count=10) == []

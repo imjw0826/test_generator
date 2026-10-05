@@ -47,13 +47,13 @@ cd frontend && npx tsc --noEmit
 - Prompts live in `app/prompts/` for the extraction prompt; smaller per-task prompts live next to their core module.
 - `raw_text` and `cleaned_text` are both preserved on `ParsedPage`.
 - Claude is used for extraction/translation/outline/solutions only — never for subject classification.
-- Subject is selected or created at upload time; chapter tags come from local heading detection or contents pages parsed locally with Claude fallback.
+- Subject is selected or created at upload time; chapter tags come from local heading detection, and full-PDF outlines come from PDF bookmarks first, then contents pages parsed locally with Claude fallback.
 - pdf-inspector text is not stored: its paragraph reflow merges numbered questions and two-column rows. Only its headings and per-page `needs_ocr` flags are used.
 
 ## Workflow
 
 1. `POST /api/upload` with `document_role` (`textbook` | `sample_exam`), `subject`, and `pdf_scope` (`chapter` | `full`). The current UI uses full PDF for textbooks and chapter PDF for sample exams.
-2. `POST /api/documents/{id}/process` — parse pages, write figures, detect chapters. For `pdf_scope=full`, text-readable contents pages are parsed locally first; Claude Sonnet is a fallback JSON normalizer when local parsing cannot produce a usable outline.
+2. `POST /api/documents/{id}/process` — parse pages, write figures, detect chapters. For `pdf_scope=full`, the PDF's own bookmarks are used as the outline when present; otherwise text-readable contents pages are parsed locally, and Claude Sonnet is a fallback JSON normalizer when local parsing cannot produce a usable outline.
 3. `POST /api/documents/{id}/extract` — for full PDFs, pass selected `chapter_ranges`; backend renders selected pages to PNG, sends them to Claude Sonnet, then persists questions.
 4. `GET /api/questions` to browse, `POST /api/study-set/random` for a random set, `POST /api/study-set/exam-pdf` or `/api/study-set/solutions-pdf` for a generated PDF.
 5. `DELETE /api/reset` clears all uploaded documents, extracted data, and generated files.
@@ -70,7 +70,7 @@ cd frontend && npx tsc --noEmit
 - `POST /api/study-set/random`
 - `POST /api/study-set/exam-pdf` / `POST /api/study-set/solutions-pdf`
 
-The `X-LLM-Provider` request header (`claude` | `deepseek`) overrides the LLM provider for the duration of a single request. Claude supports image-based extraction; DeepSeek is used through the text-compatible API path.
+The `X-LLM-Provider` request header (`claude` | `deepseek`) overrides the LLM provider for the duration of a single request. The `X-PDF-Inspector` header (`on` | `off`) overrides `PDF_STRUCTURE_ANALYSIS` on `/process` and `/reprocess`; the frontend sends it from the pdf-inspector checkbox in the nav bar. Claude supports image-based extraction; DeepSeek is used through the text-compatible API path.
 
 ## Configuration
 
@@ -80,6 +80,7 @@ All config is loaded by `app/config.py` from `backend/.env`. See `backend/.env.e
 - `CORS_ORIGINS` — comma-separated allowed frontend origins.
 - `DATABASE_URL`, `UPLOAD_DIR`, `FIGURE_DIR`, `GENERATED_EXAM_DIR` — storage locations.
 - `DEBUG` — must be `false` in production (controls SQLAlchemy echo).
+- `PDF_STRUCTURE_ANALYSIS`, `PDF_STRUCTURE_TIMEOUT_SECONDS` — default on/off and hard timeout for the pdf-inspector layout pass.
 
 ## Layout
 

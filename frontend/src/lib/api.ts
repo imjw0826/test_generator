@@ -1,5 +1,6 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const LLM_PROVIDER_STORAGE_KEY = "study-qgen-llm-provider";
+export const PDF_INSPECTOR_STORAGE_KEY = "study-qgen-pdf-inspector";
 export type LlmProvider = "claude" | "deepseek";
 
 export function getSelectedLlmProvider(): LlmProvider {
@@ -8,8 +9,17 @@ export function getSelectedLlmProvider(): LlmProvider {
   return provider === "deepseek" ? "deepseek" : "claude";
 }
 
+export function getPdfInspectorEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(PDF_INSPECTOR_STORAGE_KEY) !== "off";
+}
+
 function llmHeaders(): Record<string, string> {
-  return { "X-LLM-Provider": getSelectedLlmProvider() };
+  return {
+    "X-LLM-Provider": getSelectedLlmProvider(),
+    // Layout analysis during PDF parsing; the backend reads it on /process and /reprocess.
+    "X-PDF-Inspector": getPdfInspectorEnabled() ? "on" : "off",
+  };
 }
 
 export function resolveApiAssetUrl(url: string): string {

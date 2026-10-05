@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.database import get_db
+from app.core.pdf_parser import parse_pdf
 from app.main import app
 from app.models.document import Document
 from app.models.question import Question
@@ -205,3 +206,65 @@ def test_extract_questions_replaces_existing_rows_after_llm_returns(client, samp
     questions = db_session.query(Question).filter_by(source_document_id=doc_id).all()
     assert len(questions) == 1
     assert questions[0].question_text == "What is osmosis?"
+
+
+def _bookmarked_textbook_pdf() -> bytes:
+    doc = fitz.open()
+    for number in range(1, 9):
+        doc.new_page().insert_text((72, 72), f"Body page {number}")
+    doc.set_toc([
+        [1, "Cover", 1],
+        [1, "Chapter 1 Vectors", 2],
+        [2, "1.1 Vector Spaces", 2],
+        [2, "1.2 Linear Maps", 4],
+        [1, "Chapter 2 Matrices", 6],
+        [2, "2.1 Determinants", 7],
+    ])
+    buf = io.BytesIO()
+    doc.save(buf)
+    doc.close()
+    return buf.getvalue()
+
+
+def test_full_pdf_outline_comes_from_bookmarks_without_llm(client):
+    r = client.post(
+        "/api/upload",
+        files={"file": ("book.pdf", io.BytesIO(_bookmarked_textbook_pdf()), "application/pdf")},
+        data={"document_role": "textbook", "subject": "Math", "pdf_scope": "full"},
+    )
+    doc_id = r.json()["id"]
+
+    with patch("app.services.extraction_service.detect_chapter_outline_with_sonnet") as contents_parser:
+        response = client.post(f"/api/documents/{doc_id}/process")
+
+    assert response.status_code == 200
+    contents_parser.assert_not_called()
+    outline = response.json()["chapter_outline"]
+    assert [(item["title"], item["start_page"], item["end_page"], item["level"]) for item in outline] == [
+        ("Chapter 1 Vectors", 2, 5, 1),
+        ("1.1 Vector Spaces", 2, 3, 2),
+        ("1.2 Linear Maps", 4, 5, 2),
+        ("Chapter 2 Matrices", 6, 8, 1),
+        ("2.1 Determinants", 7, 8, 2),
+    ]
+    assert outline[1]["parent_key"] == outline[0]["key"]
+    assert outline[4]["parent_key"] == outline[3]["key"]
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [({"X-PDF-Inspector": "off"}, False), ({"X-PDF-Inspector": "on"}, True), ({}, None)],
+)
+def test_pdf_inspector_header_toggles_layout_analysis(client, sample_pdf, header, expected):
+    r = client.post(
+        "/api/upload",
+        files={"file": ("test.pdf", io.BytesIO(sample_pdf), "application/pdf")},
+        data={"document_role": "sample_exam"},
+    )
+    doc_id = r.json()["id"]
+
+    with patch("app.services.extraction_service.parse_pdf", wraps=parse_pdf) as parse:
+        response = client.post(f"/api/documents/{doc_id}/process", headers=header)
+
+    assert response.status_code == 200
+    assert parse.call_args.kwargs["analyze_structure"] is expected

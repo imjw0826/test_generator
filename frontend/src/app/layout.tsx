@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import ModelSelector from "@/components/ModelSelector";
+import PdfInspectorToggle from "@/components/PdfInspectorToggle";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
               Study Set
             </Link>
             <ModelSelector />
+            <PdfInspectorToggle />
           </nav>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">

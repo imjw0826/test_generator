@@ -44,9 +44,9 @@ flowchart LR
 
 2. Parse
    - Frontend calls `POST /api/documents/{id}/process` when the user clicks **Parse**.
-   - Backend uses PyMuPDF to persist every page as `ParsedPage(raw_text, cleaned_text, figures)`. pdf-inspector runs in parallel in a child process; its font-based headings drive chapter tags, and it is abandoned (falling back to text-line heuristics) if it takes longer than the PyMuPDF pass.
+   - Backend uses PyMuPDF to persist every page as `ParsedPage(raw_text, cleaned_text, figures)`. pdf-inspector runs in parallel in a child process; its font-based headings drive chapter tags, and it is abandoned (falling back to text-line heuristics) if it takes longer than the PyMuPDF pass. Turn it off with the **pdf-inspector** checkbox in the nav bar (sent as `X-PDF-Inspector: off`) or `PDF_STRUCTURE_ANALYSIS=false`.
    - For chapter PDFs, local heading detection builds a simple chapter outline.
-   - For full PDFs, the backend extracts text-readable contents pages and first parses numbered entries locally. If the local parser cannot produce a usable outline, Claude Sonnet is used as a fallback JSON normalizer. A local repair pass preserves multiline chapter/section entries and resolves PDF page ranges from printed contents page labels.
+   - For full PDFs, the backend first uses the PDF's own bookmarks as the outline (exact page ranges, no LLM call). Without usable bookmarks, it extracts text-readable contents pages and first parses numbered entries locally. If the local parser cannot produce a usable outline, Claude Sonnet is used as a fallback JSON normalizer. A local repair pass preserves multiline chapter/section entries and resolves PDF page ranges from printed contents page labels.
    - Parse does not extract questions from a full PDF. It only prepares contents selection.
 
 3. Extract
