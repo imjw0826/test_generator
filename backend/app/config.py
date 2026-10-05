@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     llm_max_retries: int = 3
     llm_include_page_image: bool = True
     llm_page_image_zoom: float = 2.0
+    # pdf-inspector layout analysis (headings, scanned-page flags) during processing.
+    pdf_structure_analysis: bool = True
+    pdf_structure_timeout_seconds: float = 30.0
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

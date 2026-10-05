@@ -7,3 +7,4 @@ pydantic-settings
 pymupdf
 httpx
 anthropic
+pdf-inspector

@@ -10,7 +10,7 @@ Current focus: reliable PDF question extraction with math, figures, subject orga
 
 - Backend: FastAPI + SQLAlchemy 2.0 + SQLite
 - Frontend: Next.js App Router (React 19, Tailwind v4)
-- PDF parsing: PyMuPDF
+- PDF parsing: PyMuPDF, plus pdf-inspector layout analysis (headings, scanned-page flags)
 - LLM: Anthropic Claude — `claude-sonnet-4-6` (extraction, outline, translation), `claude-opus-4-7` (solutions). DeepSeek is optionally available via the Anthropic-compatible endpoint when the request carries `X-LLM-Provider: deepseek`.
 - Math: KaTeX
 - Exam PDF: local LaTeX engine (`tectonic`, `xelatex`, `lualatex`, or `pdflatex`)

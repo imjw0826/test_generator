@@ -1,9 +1,23 @@
 import base64
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import re
+import time
 
 import fitz  # PyMuPDF
+
+from app.config import settings
+from app.core.pdf_structure import start_structure_analysis
+
+logger = logging.getLogger(__name__)
+
+# Once the PyMuPDF pass is done, wait for the layout analysis at most this
+# multiple of that pass's duration (with a floor for interpreter startup):
+# the analysis normally finishes first, but it can be far slower on some
+# table-heavy PDFs, and it must never dominate processing time.
+STRUCTURE_WAIT_FACTOR = 1.0
+STRUCTURE_MIN_WAIT_SECONDS = 1.0
 
 
 @dataclass
@@ -23,25 +37,68 @@ class PageText:
     page_number: int
     raw_text: str
     figures: list[PageFigure]
+    # From pdf-inspector layout analysis; None when the analysis was unavailable.
+    headings: list[str] | None = None
+    needs_ocr: bool = False
+    ocr_reason: str | None = None
 
 
 def parse_pdf(
     file_path: str,
     figure_output_dir: Path | None = None,
     figure_url_prefix: str | None = None,
+    analyze_structure: bool | None = None,
 ) -> list[PageText]:
+    if analyze_structure is None:
+        analyze_structure = settings.pdf_structure_analysis
+    # Started first so the child process overlaps with the PyMuPDF pass below.
+    structure_job = (
+        start_structure_analysis(file_path, timeout=settings.pdf_structure_timeout_seconds)
+        if analyze_structure
+        else None
+    )
+
     pages: list[PageText] = []
-    with fitz.open(file_path) as doc:
-        for i, page in enumerate(doc):
-            page_number = i + 1
-            text, figures = _extract_page_content(
-                page=page,
-                page_number=page_number,
-                figure_output_dir=figure_output_dir,
-                figure_url_prefix=figure_url_prefix,
-            )
-            pages.append(PageText(page_number=page_number, raw_text=text, figures=figures))
+    started = time.monotonic()
+    try:
+        with fitz.open(file_path) as doc:
+            for i, page in enumerate(doc):
+                page_number = i + 1
+                text, figures = _extract_page_content(
+                    page=page,
+                    page_number=page_number,
+                    figure_output_dir=figure_output_dir,
+                    figure_url_prefix=figure_url_prefix,
+                )
+                pages.append(PageText(page_number=page_number, raw_text=text, figures=figures))
+    except BaseException:
+        if structure_job:
+            structure_job.cancel()
+        raise
+
+    if structure_job:
+        max_wait = max(STRUCTURE_MIN_WAIT_SECONDS, (time.monotonic() - started) * STRUCTURE_WAIT_FACTOR)
+        _apply_structure(pages, structure_job.result(max_wait=max_wait))
     return pages
+
+
+def _apply_structure(pages: list[PageText], structure) -> None:
+    if not structure:
+        return
+    for page in pages:
+        page_structure = structure.get(page.page_number)
+        if page_structure is None:
+            continue
+        page.headings = page_structure.headings
+        page.needs_ocr = page_structure.needs_ocr
+        page.ocr_reason = page_structure.ocr_reason
+    ocr_pages = [page.page_number for page in pages if page.needs_ocr]
+    if ocr_pages:
+        logger.info(
+            "%d page(s) have no reliable text layer (scanned or broken encoding): %s",
+            len(ocr_pages),
+            ocr_pages[:20],
+        )
 
 
 def get_page_count(file_path: str) -> int:

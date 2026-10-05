@@ -15,7 +15,7 @@ Product focus: reliable PDF question extraction.
 
 - Backend: FastAPI, SQLAlchemy 2.0, SQLite
 - Frontend: Next.js App Router (React 19)
-- PDF parsing: PyMuPDF (`fitz`)
+- PDF parsing: PyMuPDF (`fitz`) for stored page text and figures; `pdf-inspector` layout analysis (font-based headings for chapter tags, scanned-page flags) runs in a child process alongside it (`core/pdf_structure.py`) and is dropped if it runs long.
 - LLM: Anthropic Claude (`claude-sonnet-5-5` extraction/outline/translation, `claude-opus-5-5` solutions; adaptive thinking with per-task `effort`, called through `llm_runtime.create_text_message`). DeepSeek is available via the Anthropic-compatible base URL when `X-LLM-Provider: deepseek` is sent.
 - Math rendering: KaTeX
 - Exam PDF generation: local LaTeX engine — `tectonic` (preferred), `xelatex`, `lualatex`, or `pdflatex`. No LLM call.
@@ -48,6 +48,7 @@ cd frontend && npx tsc --noEmit
 - `raw_text` and `cleaned_text` are both preserved on `ParsedPage`.
 - Claude is used for extraction/translation/outline/solutions only — never for subject classification.
 - Subject is selected or created at upload time; chapter tags come from local heading detection or contents pages parsed locally with Claude fallback.
+- pdf-inspector text is not stored: its paragraph reflow merges numbered questions and two-column rows. Only its headings and per-page `needs_ocr` flags are used.
 
 ## Workflow
 

@@ -4,7 +4,7 @@ Full-stack app for university exam prep. Upload textbook or sample-exam PDFs, th
 
 - **Backend:** FastAPI + SQLAlchemy + SQLite
 - **Frontend:** Next.js App Router (React 19, Tailwind v4)
-- **PDF parsing:** PyMuPDF (`fitz`)
+- **PDF parsing:** PyMuPDF (`fitz`) for page text and figures, plus [pdf-inspector](https://github.com/firecrawl/pdf-inspector) layout analysis for chapter headings and scanned-page detection
 - **LLM:** Anthropic Claude (Sonnet 4.6 for extraction/outline/translation, Opus 4.7 for solutions). DeepSeek available via the Anthropic-compatible endpoint when the request sends `X-LLM-Provider: deepseek`.
 - **Math:** KaTeX
 - **Exam PDF:** local LaTeX (`tectonic` recommended)
@@ -44,7 +44,7 @@ flowchart LR
 
 2. Parse
    - Frontend calls `POST /api/documents/{id}/process` when the user clicks **Parse**.
-   - Backend uses PyMuPDF to persist every page as `ParsedPage(raw_text, cleaned_text, figures)`.
+   - Backend uses PyMuPDF to persist every page as `ParsedPage(raw_text, cleaned_text, figures)`. pdf-inspector runs in parallel in a child process; its font-based headings drive chapter tags, and it is abandoned (falling back to text-line heuristics) if it takes longer than the PyMuPDF pass.
    - For chapter PDFs, local heading detection builds a simple chapter outline.
    - For full PDFs, the backend extracts text-readable contents pages and first parses numbered entries locally. If the local parser cannot produce a usable outline, Claude Sonnet is used as a fallback JSON normalizer. A local repair pass preserves multiline chapter/section entries and resolves PDF page ranges from printed contents page labels.
    - Parse does not extract questions from a full PDF. It only prepares contents selection.

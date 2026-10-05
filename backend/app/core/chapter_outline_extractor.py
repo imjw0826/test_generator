@@ -8,6 +8,11 @@ from app.models.parsed_page import ParsedPage
 
 logger = logging.getLogger(__name__)
 
+MAX_CONTENTS_CONTINUATION_PAGES = 10
+# Separator between a contents title and its page number: dot leaders
+# ("....", ". . .") or a wide gap.
+LEADER = r"(?:(?:\s*\.){2,}\s*|\s{2,})"
+
 
 SYSTEM_PROMPT = """Extract the textbook contents from the provided contents page text.
 Return only a valid JSON array. Each item:
@@ -173,7 +178,7 @@ def _iter_numbered_contents_entries(text: str) -> list[dict]:
                 break
             if _looks_like_entry_start(next_line):
                 break
-            page_match = re.match(r"^(?P<title>.*?)(?:\.{2,}\s*|\s{2,})(?P<page>\d{1,4})$", next_line)
+            page_match = re.match(rf"^(?P<title>.*?){LEADER}(?P<page>\d{{1,4}})$", next_line)
             if page_match and page_match.group("title").strip():
                 title_parts.append(page_match.group("title").strip(" ."))
                 page_label = page_match.group("page")
@@ -200,7 +205,7 @@ def _iter_numbered_contents_entries(text: str) -> list[dict]:
 
 def _entry_from_single_line(line: str) -> dict | None:
     match = re.match(
-        r"^(?P<title>(?:CHAPTER\s+\d+\b|\d+(?:\.\d+)+\b)\s+.{3,220}?)(?:\.{2,}|\s{2,})(?P<page>\d{1,4})$",
+        rf"^(?P<title>(?:CHAPTER\s+\d+\b|\d+(?:\.\d+)+\b)\s+.{{3,220}}?){LEADER}(?P<page>\d{{1,4}})$",
         line,
         re.IGNORECASE,
     )
@@ -248,10 +253,20 @@ def _select_contents_pages(pages: list[ParsedPage]) -> list[ParsedPage]:
             break
         start_page -= 1
 
+    # Extend only over pages that still read as contents: pages taken as contents
+    # are skipped when locating chapter starts, so a chapter opening right after
+    # a short contents section would otherwise resolve to the wrong page.
+    end_page = best_page
+    while end_page < best_page + MAX_CONTENTS_CONTINUATION_PAGES:
+        following = page_by_number.get(end_page + 1)
+        if not following or not _looks_like_contents_page(following.raw_text or ""):
+            break
+        end_page += 1
+
     return [
         page
         for page in front_matter
-        if start_page <= page.page_number <= best_page + 10
+        if start_page <= page.page_number <= end_page
     ]
 
 
@@ -259,7 +274,9 @@ def _looks_like_contents_page(text: str) -> bool:
     if _has_contents_heading(text):
         return True
     numbered_entry_count = len(re.findall(r"^\s*(?:CHAPTER\s+\d+|\d+(?:\.\d+)+)\b", text, re.MULTILINE | re.IGNORECASE))
+    # Page numbers sit on their own line, or end an entry after leader dots / a wide gap.
     page_number_line_count = len(re.findall(r"^\s*\d{1,4}\s*$", text, re.MULTILINE))
+    page_number_line_count += len(re.findall(rf"\S{LEADER}\d{{1,4}}\s*$", text, re.MULTILINE))
     return numbered_entry_count >= 3 and page_number_line_count >= 3
 
 
@@ -277,7 +294,13 @@ def _resolve_contents_entries_to_page_ranges(
     contents_pages: list[ParsedPage] | None = None,
 ) -> list[dict]:
     contents_page_numbers = {page.page_number for page in contents_pages or []}
-    searchable_pages = [page for page in pages if page.page_number not in contents_page_numbers]
+    # Normalized once: matching every entry against freshly normalized page text
+    # was the slowest step of processing a full textbook.
+    searchable_pages = [
+        (page.page_number, _normalize_title(page.raw_text or ""))
+        for page in pages
+        if page.page_number not in contents_page_numbers
+    ]
     resolved: list[dict] = []
     for entry in entries:
         title = entry["title"]
@@ -322,16 +345,15 @@ def _resolve_contents_entries_to_page_ranges(
     return _annotate_outline_hierarchy(_dedupe_outline(outline))
 
 
-def _find_title_page(title: str, pages: list[ParsedPage]) -> int | None:
+def _find_title_page(title: str, normalized_pages: list[tuple[int, str]]) -> int | None:
     target = _normalize_title(title)
     if not target:
         return None
 
     short_target = re.sub(r"^\d+(?:\.\d+)*\s*", "", target)
-    for page in pages:
-        page_text = _normalize_title(page.raw_text or "")
+    for page_number, page_text in normalized_pages:
         if target in page_text or (short_target and short_target in page_text):
-            return page.page_number
+            return page_number
     return None
 
 
@@ -432,6 +454,8 @@ def _clean_contents_title(title: str) -> str:
     title = re.sub(r"[\x00-\x1f\x7f]", " ", title)
     title = re.sub(r"\.{2,}\s*\d+\s*$", "", title)
     title = re.sub(r"\s+\d+\s*$", "", title)
+    # Dot leaders left behind when the page number sits on the next line.
+    title = re.sub(r"(?:\s*[.\u2026\u00b7]){2,}\s*$", "", title)
     return re.sub(r"\s+", " ", title).strip(" -:")
 
 

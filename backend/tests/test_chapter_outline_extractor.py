@@ -115,3 +115,52 @@ def test_llm_payload_rejects_long_body_paragraphs_disguised_as_chapters():
     assert _entries_from_payload(payload) == [
         {"title": "CHAPTER 1 First-Order ODEs", "page_label": "2"}
     ]
+
+
+def test_contents_entries_drop_dot_leaders_and_accept_spaced_page_numbers():
+    contents_text = "\n".join([
+        "PDF PAGE 2",
+        "CHAPTER 1 Vectors and Matrices ..................",
+        "1",
+        "1.1 Vector Spaces ........ 3",
+        "1.2 Linear Maps . . . . . . . 7",
+    ])
+
+    entries = _iter_numbered_contents_entries(contents_text)
+
+    assert entries == [
+        {"title": "CHAPTER 1 Vectors and Matrices", "page_label": "1"},
+        {"title": "1.1 Vector Spaces", "page_label": "3"},
+        {"title": "1.2 Linear Maps", "page_label": "7"},
+    ]
+
+
+def test_chapter_starting_right_after_contents_is_not_swallowed_by_contents_window():
+    contents = "\n".join([
+        "Contents",
+        "CHAPTER 1 Vectors ........ 1",
+        "1.1 Vector Spaces ........ 1",
+        "1.2 Linear Maps ........ 3",
+        "CHAPTER 2 Matrices ........ 5",
+    ])
+    pages = [
+        _page(1, "Title page"),
+        _page(2, contents),
+        _page(3, "CHAPTER 1\nVectors\n1.1 Vector Spaces\nA vector space is a set."),
+        _page(4, "More on vector spaces."),
+        _page(5, "1.2 Linear Maps\nA linear map preserves sums."),
+        _page(6, "Exercises"),
+        _page(7, "CHAPTER 2\nMatrices\nA matrix is a rectangular array."),
+    ]
+
+    contents_pages = _select_contents_pages(pages)
+    entries = _iter_numbered_contents_entries(contents)
+    outline = _resolve_contents_entries_to_page_ranges(entries, pages, contents_pages=contents_pages)
+
+    assert [page.page_number for page in contents_pages] == [2]
+    assert [(item["title"], item["start_page"]) for item in outline] == [
+        ("CHAPTER 1 Vectors", 3),
+        ("1.1 Vector Spaces", 3),
+        ("1.2 Linear Maps", 5),
+        ("CHAPTER 2 Matrices", 7),
+    ]
