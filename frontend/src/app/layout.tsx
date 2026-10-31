@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import ModelSelector from "@/components/ModelSelector";
+import NavLinks from "@/components/NavLinks";
 import "katex/dist/katex.min.css";
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,28 +29,25 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-        <header className="border-b border-zinc-200 dark:border-zinc-700">
-          <nav className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-4">
-            <Link href="/" className="text-lg font-bold">
-              Study Q-Gen
+      <body className="flex min-h-full flex-col">
+        <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
+          <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5 sm:h-14 sm:flex-nowrap sm:py-0">
+            <Link href="/" className="flex shrink-0 items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-primary text-[11px] font-semibold tracking-tight text-primary-foreground">
+                Q
+              </span>
+              <span className="text-[15px] font-semibold tracking-[-0.02em]">
+                Study Q-Gen
+              </span>
             </Link>
-            <Link href="/" className="text-sm hover:underline">
-              Upload
-            </Link>
-            <Link href="/questions" className="text-sm hover:underline">
-              Question Bank
-            </Link>
-            <Link href="/study-set" className="text-sm hover:underline">
-              Study Set
-            </Link>
+            <NavLinks />
             <ModelSelector />
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-10">
           {children}
         </main>
       </body>

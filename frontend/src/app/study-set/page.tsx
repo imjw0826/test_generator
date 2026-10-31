@@ -176,26 +176,33 @@ export default function StudySetPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Random Study Set</h1>
-        <p className="mt-1 text-zinc-500">
-          Generate a local LaTeX exam PDF from stored questions. The solutions PDF uses Opus for explanations.
-          {totalAvailable != null && ` ${totalAvailable} questions available.`}
+    <div className="space-y-8">
+      <div className="fade-in-up max-w-xl">
+        <p className="text-eyebrow mb-3">Step 3 · Practice</p>
+        <h1 className="text-display">Random study set</h1>
+        <p className="text-lead mt-2">
+          저장된 문제로 무작위 세트를 만들고 LaTeX 시험지 PDF로 내려받습니다. 풀이 PDF는 Claude Opus가 작성합니다.
+          {totalAvailable != null && (
+            <>
+              {" "}
+              <span className="tabular-nums text-foreground">{totalAvailable}</span>문제 중에서 고릅니다.
+            </>
+          )}
         </p>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-zinc-500">Subject</label>
+      <div className="surface p-5">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_7rem]">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="set-subject" className="text-label">Subject</label>
             <select
+              id="set-subject"
               value={subject}
               onChange={(e) => {
                 setSubject(e.target.value);
                 setSelectedChapters([]);
               }}
-              className="min-w-44 rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              className="field"
             >
               <option value="">All subjects</option>
               {filterOptions.subjects.map((item) => (
@@ -204,24 +211,32 @@ export default function StudySetPage() {
             </select>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-zinc-500">Chapter</label>
-            <div className="min-w-64 rounded border border-zinc-300 bg-white p-2 text-sm dark:border-zinc-600 dark:bg-zinc-800">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-label">
+              Chapters
+              {selectedChapters.length > 0 && (
+                <span className="ml-1.5 tabular-nums text-foreground">{selectedChapters.length} selected</span>
+              )}
+            </span>
+            <div className="min-h-9 rounded-[0.625rem] bg-muted p-1.5">
               {!subject && (
-                <p className="text-xs text-zinc-500">Select one subject before choosing multiple chapters.</p>
+                <p className="px-1.5 py-1 text-[13px] text-subtle-foreground">과목을 먼저 선택하면 여러 챕터를 고를 수 있습니다.</p>
               )}
               {subject && availableChapters.length === 0 && (
-                <p className="text-xs text-zinc-500">No chapters available.</p>
+                <p className="px-1.5 py-1 text-[13px] text-subtle-foreground">No chapters available.</p>
               )}
               {subject && availableChapters.length > 0 && (
-                <div className="max-h-32 space-y-1 overflow-y-auto">
+                <div className="max-h-36 space-y-0.5 overflow-y-auto">
                   {availableChapters.map((chapter) => (
-                    <label key={chapter} className="flex items-start gap-2 text-xs">
+                    <label
+                      key={chapter}
+                      className="flex cursor-pointer items-start gap-2.5 rounded-lg px-1.5 py-1.5 text-[13px] tracking-[-0.006em] transition-colors duration-150 hover:bg-card"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedChapters.includes(chapter)}
                         onChange={() => toggleChapter(chapter)}
-                        className="mt-0.5"
+                        className="checkbox mt-px"
                       />
                       <span>{chapter}</span>
                     </label>
@@ -230,95 +245,85 @@ export default function StudySetPage() {
               )}
             </div>
             {selectedChapters.length > 1 && (
-              <p className="text-xs text-zinc-500">
-                Problems are balanced across {selectedChapters.length} selected chapters.
+              <p className="text-xs text-muted-foreground">
+                선택한 {selectedChapters.length}개 챕터에서 고르게 출제합니다.
               </p>
             )}
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-zinc-500">Number of Problems</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="set-count" className="text-label">Problems</label>
             <input
+              id="set-count"
               type="number"
               min={1}
               max={100}
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
-              className="w-20 rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              className="field tabular-nums"
             />
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3">
-          <label className="flex items-center gap-2 text-sm">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
+          <label className="flex cursor-pointer items-center gap-2.5 text-[13px]">
             <input
               type="checkbox"
               checked={includeAnswers}
               onChange={(e) => setIncludeAnswers(e.target.checked)}
+              className="checkbox"
             />
-            Include short answers under each problem
+            Include short answers
           </label>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={generate}
-              disabled={loading}
-              className="rounded bg-blue-500 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
-            >
-              {loading ? "Generating..." : "Generate"}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={generate} disabled={loading} className="btn btn-primary">
+              {loading ? "Generating…" : "Generate"}
             </button>
-            <button
-              onClick={downloadExam}
-              disabled={downloading}
-              className="rounded bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-            >
-              {downloading ? "Building PDF..." : "Download PDF"}
+            <button onClick={downloadExam} disabled={downloading} className="btn btn-outline">
+              {downloading ? "Building PDF…" : "Exam PDF"}
             </button>
-            <button
-              onClick={downloadSolutions}
-              disabled={downloadingSolutions}
-              className="rounded bg-amber-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
-            >
-              {downloadingSolutions ? "Writing Solutions..." : "Download Solutions PDF"}
+            <button onClick={downloadSolutions} disabled={downloadingSolutions} className="btn btn-outline">
+              {downloadingSolutions ? "Writing solutions…" : "Solutions PDF"}
             </button>
           </div>
         </div>
         <TaskProgress state={generateProgress.state} />
         <TaskProgress state={examProgress.state} />
         <TaskProgress state={solutionsProgress.state} />
-        {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
       </div>
 
       {questions.length > 0 && (
-        <div className="space-y-4">
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
-              {questions.length} Question{questions.length !== 1 ? "s" : ""}
+            <h2 className="text-title">
+              <span className="tabular-nums">{questions.length}</span> question{questions.length !== 1 ? "s" : ""}
             </h2>
-            <button
-              onClick={generate}
-              disabled={loading}
-              className="rounded border border-zinc-300 px-3 py-1 text-sm transition hover:bg-zinc-50 dark:border-zinc-600 dark:hover:bg-zinc-800"
-            >
+            <button onClick={generate} disabled={loading} className="btn btn-secondary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v2.75h-2.75" />
+              </svg>
               Re-roll
             </button>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div key={questions.map((q) => q.id).join("-")} className="stagger grid gap-3 sm:grid-cols-2">
             {questions.map((q) => (
-              <div key={q.id} className="relative">
+              <div key={q.id} className="group relative">
                 <QuestionCard question={q} onClick={setSelected} />
                 <button
                   onClick={() => handleExclude(q.id)}
-                  className="absolute right-2 top-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-200"
+                  className="btn btn-ghost btn-icon absolute right-2 top-2 h-7 w-7 opacity-60 transition-opacity group-hover:opacity-100 hover:text-danger"
                   title="Remove from set"
+                  aria-label="Remove from set"
                 >
-                  &times;
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden><path d="M4 4l8 8M12 4l-8 8" /></svg>
                 </button>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {selected && (

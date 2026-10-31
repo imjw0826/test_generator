@@ -11,11 +11,11 @@ interface ExtractionProgress {
   percent: number;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  uploaded: "bg-yellow-100 text-yellow-800",
-  parsed: "bg-blue-100 text-blue-800",
-  extracted: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
+const STATUS_STYLES: Record<string, string> = {
+  uploaded: "text-amber-600 dark:text-amber-400",
+  parsed: "text-sky-600 dark:text-sky-400",
+  extracted: "text-emerald-600 dark:text-emerald-400",
+  failed: "text-red-600 dark:text-red-400",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -199,7 +199,7 @@ export default function DocumentList({
   }
 
   function treeIndent(level: number | undefined) {
-    return Math.min(Math.max((level ?? 1) - 1, 0), 4) * 24;
+    return Math.min(Math.max((level ?? 1) - 1, 0), 4) * 20;
   }
 
   function outlineLevel(title: string, level: number | undefined) {
@@ -223,53 +223,66 @@ export default function DocumentList({
   }
 
   if (loading) {
-    return <p className="py-8 text-center text-zinc-400">Loading documents...</p>;
+    return (
+      <div className="surface divide-y divide-[var(--border)]">
+        {[0, 1].map((i) => (
+          <div key={i} className="flex items-center gap-4 px-5 py-4">
+            <div className="h-3 w-40 animate-pulse rounded-full bg-muted" />
+            <div className="h-3 w-20 animate-pulse rounded-full bg-muted" />
+            <div className="ml-auto h-7 w-24 animate-pulse rounded-full bg-muted" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (documents.length === 0) {
     return (
-      <p className="py-8 text-center text-zinc-400">
-        No documents uploaded yet. Upload a PDF above to get started.
-      </p>
+      <div className="surface-muted px-6 py-12 text-center">
+        <p className="text-[13px] font-medium">No documents yet</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          위에서 PDF를 업로드하면 여기에 표시됩니다.
+        </p>
+      </div>
     );
   }
 
   return (
     <>
     {actionError && (
-      <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+      <div className="fade-in-up mb-3 flex items-start justify-between gap-3 rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-[13px] text-danger">
         <span>{actionError}</span>
-        <button onClick={() => setActionError(null)} className="text-xs underline">
+        <button onClick={() => setActionError(null)} className="shrink-0 text-xs font-medium underline-offset-2 hover:underline">
           Dismiss
         </button>
       </div>
     )}
-    <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-zinc-50 dark:bg-zinc-800">
-          <tr>
-            <th className="px-4 py-3 font-medium">File</th>
-            <th className="px-4 py-3 font-medium">Subject</th>
-            <th className="px-4 py-3 font-medium">Role</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Pages</th>
-            <th className="px-4 py-3 font-medium">Uploaded</th>
-            <th className="px-4 py-3 font-medium">Actions</th>
+    <div className="surface overflow-x-auto">
+      <table className="w-full min-w-[720px] whitespace-nowrap text-left text-[13px]">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-label px-5 py-3 font-medium">File</th>
+            <th className="text-label px-3 py-3 font-medium">Subject</th>
+            <th className="text-label px-3 py-3 font-medium">Role</th>
+            <th className="text-label px-3 py-3 font-medium">Status</th>
+            <th className="text-label px-3 py-3 text-right font-medium">Pages</th>
+            <th className="text-label px-3 py-3 font-medium">Uploaded</th>
+            <th className="text-label px-5 py-3 font-medium">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
+        <tbody className="divide-y divide-[var(--border)]">
           {documents.map((doc) => {
             const isBusy = busyId === doc.id;
             const selectedForDoc = selectedChapters[doc.id] ?? [];
             const needsChapterSelection = doc.pdf_scope === "full" && selectedForDoc.length === 0;
             return (
-              <tr key={doc.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td className="max-w-56 px-4 py-3 font-medium">
+              <tr key={doc.id} className="align-top transition-colors duration-150 hover:bg-accent">
+                <td className="max-w-56 px-5 py-3.5 font-medium tracking-[-0.01em]">
                   <span className="block truncate" title={doc.original_name}>
                     {doc.original_name}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3.5">
                   {editingSubjectId === doc.id ? (
                     <input
                       autoFocus
@@ -281,17 +294,17 @@ export default function DocumentList({
                         if (e.key === "Enter") saveSubject(doc);
                         if (e.key === "Escape") cancelEditSubject();
                       }}
-                      className="w-full min-w-24 rounded border border-blue-400 px-2 py-0.5 text-sm outline-none focus:ring-1 focus:ring-blue-400 dark:bg-zinc-800"
+                      className="field h-7 min-w-24 px-2 text-[13px]"
                     />
                   ) : (
                     <button
                       onClick={() => startEditSubject(doc)}
                       title="클릭하여 과목 수정"
-                      className="group flex items-center gap-1 rounded px-1 -mx-1 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition"
+                      className="group -mx-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors duration-150 hover:bg-accent-strong"
                     >
                       <span>{doc.subject}</span>
                       <svg
-                        className="h-3 w-3 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        className="h-3 w-3 flex-shrink-0 text-subtle-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100"
                         viewBox="0 0 16 16" fill="currentColor"
                       >
                         <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/>
@@ -299,32 +312,30 @@ export default function DocumentList({
                     </button>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3.5">
                   <div>{ROLE_LABELS[doc.document_role]}</div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-subtle-foreground">
                     {doc.pdf_scope === "full" ? "Full PDF" : "Chapter PDF"}
                   </div>
                 </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[doc.status] || ""}`}
-                  >
+                <td className="px-3 py-3.5">
+                  <span className={`badge badge-dot capitalize ${STATUS_STYLES[doc.status] || ""}`}>
                     {doc.status}
                   </span>
                 </td>
-                <td className="px-4 py-3">{doc.page_count ?? "-"}</td>
-                <td className="px-4 py-3 text-zinc-500">
+                <td className="px-3 py-3.5 text-right tabular-nums">{doc.page_count ?? "–"}</td>
+                <td className="px-3 py-3.5 tabular-nums text-muted-foreground">
                   {formatDate(doc.created_at)}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
+                <td className="px-5 py-3">
+                  <div className="flex flex-wrap gap-1.5">
                     {(doc.status === "uploaded" || doc.status === "failed") && (
                       <button
                         onClick={() => handleAction(doc, "process")}
                         disabled={isBusy}
-                        className="rounded bg-blue-500 px-3 py-1 text-xs font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
+                        className="btn btn-primary btn-sm"
                       >
-                        {isBusy && busyAction === "process" ? "Parsing..." : "Parse"}
+                        {isBusy && busyAction === "process" ? "Parsing…" : "Parse"}
                       </button>
                     )}
                     {(doc.status === "parsed" || doc.status === "extracted") && (
@@ -332,16 +343,16 @@ export default function DocumentList({
                         onClick={() => handleAction(doc, "extract")}
                         disabled={isBusy || needsChapterSelection}
                         title={needsChapterSelection ? "Select at least one chapter first" : undefined}
-                        className="rounded bg-green-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                        className="btn btn-primary btn-sm"
                       >
-                        {isBusy && busyAction === "extract" ? "Extracting..." : "Extract"}
+                        {isBusy && busyAction === "extract" ? "Extracting…" : "Extract"}
                       </button>
                     )}
                     {doc.pdf_scope === "full" && (doc.status === "parsed" || doc.status === "extracted") && (
                       <button
                         onClick={() => setOutlineDoc(doc)}
                         disabled={isBusy}
-                        className="rounded border border-blue-300 px-3 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                        className="btn btn-outline btn-sm"
                       >
                         Contents
                       </button>
@@ -350,44 +361,41 @@ export default function DocumentList({
                       <button
                         onClick={() => handleAction(doc, "reprocess")}
                         disabled={isBusy}
-                        className="rounded border border-zinc-300 px-3 py-1 text-xs font-medium transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:hover:bg-zinc-800"
+                        className="btn btn-secondary btn-sm"
                       >
-                        {isBusy && busyAction === "reprocess" ? "Parsing..." : "Parse"}
+                        {isBusy && busyAction === "reprocess" ? "Parsing…" : "Parse"}
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(doc)}
                       disabled={isBusy}
-                      className="rounded border border-red-300 px-3 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                      className="btn btn-ghost btn-sm hover:text-danger"
                     >
-                      {isBusy && busyAction === "delete" ? "Deleting..." : "Delete"}
+                      {isBusy && busyAction === "delete" ? "Deleting…" : "Delete"}
                     </button>
                   </div>
                   {isBusy && busyAction === "extract" && (() => {
                     const prog = extractProgress[doc.id];
                     const percent = prog?.percent ?? 0;
                     const label = prog
-                      ? `${prog.current} / ${prog.total} pages (${percent}%)`
-                      : "Starting...";
+                      ? `${prog.current} / ${prog.total} pages · ${percent}%`
+                      : "Starting…";
                     return (
-                      <div className="mt-2 space-y-1">
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                          <div
-                            className="h-full rounded-full bg-green-500 transition-all duration-500"
-                            style={{ width: `${percent}%` }}
-                          />
+                      <div className="mt-2.5 space-y-1.5">
+                        <div className="progress-track">
+                          <div className="progress-fill" style={{ width: `${percent}%` }} />
                         </div>
-                        <p className="text-xs text-zinc-500">{label}</p>
+                        <p className="text-xs tabular-nums text-muted-foreground">{label}</p>
                       </div>
                     );
                   })()}
                   {doc.pdf_scope === "full" && doc.status === "parsed" && (!doc.chapter_outline || doc.chapter_outline.length === 0) && (
-                    <p className="mt-2 text-xs text-amber-600">
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                       No contents entries found. Check whether the PDF has a text-readable contents page.
                     </p>
                   )}
                   {doc.error_message && (
-                    <p className="mt-1 text-xs text-red-500 max-w-xs truncate" title={doc.error_message}>
+                    <p className="mt-1.5 max-w-xs truncate text-xs text-danger" title={doc.error_message}>
                       {doc.error_message}
                     </p>
                   )}
@@ -399,83 +407,91 @@ export default function DocumentList({
       </table>
     </div>
     {outlineDoc && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setOutlineDoc(null)}>
+      <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOutlineDoc(null)}>
         <div
-          className="mx-4 max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-800"
+          role="dialog"
+          aria-modal="true"
+          className="modal-panel flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold">Select Chapters from Contents</h3>
-              <p className="mt-1 max-w-xl truncate text-sm text-zinc-500" title={outlineDoc.original_name}>
+          <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+            <div className="min-w-0">
+              <h3 className="text-title">Select chapters</h3>
+              <p className="mt-1 truncate text-[13px] text-muted-foreground" title={outlineDoc.original_name}>
                 {outlineDoc.original_name}
               </p>
             </div>
             <button
               onClick={() => setOutlineDoc(null)}
-              className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700"
+              className="btn btn-ghost btn-icon"
+              aria-label="Close"
             >
-              &times;
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden><path d="M4 4l8 8M12 4l-8 8" /></svg>
             </button>
           </div>
 
-          {outlineDoc.chapter_outline && outlineDoc.chapter_outline.length > 0 ? (
-            <div className="space-y-2">
-              {sortedOutline(outlineDoc).map((chapter, index) => {
-                const key = chapterKey(chapter, index);
-                const level = outlineLevel(chapter.title, chapter.level);
-                return (
-                  <label
-                    key={key}
-                    className="flex items-start gap-3 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-700"
-                    style={{ marginLeft: treeIndent(level) }}
-                  >
-                    <span className="mt-1 flex items-center gap-2">
-                      {level > 1 && <span className="h-px w-4 bg-zinc-300 dark:bg-zinc-600" />}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {outlineDoc.chapter_outline && outlineDoc.chapter_outline.length > 0 ? (
+              <div className="space-y-1">
+                {sortedOutline(outlineDoc).map((chapter, index) => {
+                  const key = chapterKey(chapter, index);
+                  const level = outlineLevel(chapter.title, chapter.level);
+                  const checked = (selectedChapters[outlineDoc.id] ?? []).includes(key);
+                  return (
+                    <label
+                      key={key}
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 ${
+                        checked ? "bg-accent-strong" : "hover:bg-accent"
+                      }`}
+                      style={{ marginLeft: treeIndent(level) }}
+                    >
                       <input
                         type="checkbox"
-                        checked={(selectedChapters[outlineDoc.id] ?? []).includes(key)}
+                        className="checkbox mt-0.5"
+                        checked={checked}
                         onChange={() => toggleChapter(outlineDoc.id, key)}
                       />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={`block ${level === 1 ? "font-semibold" : "font-medium"}`}>
-                        {chapter.title}
+                      <span className="min-w-0 flex-1">
+                        <span className={`block text-[13px] tracking-[-0.01em] ${level === 1 ? "font-semibold" : "font-medium"}`}>
+                          {chapter.title}
+                        </span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          PDF p.{chapter.start_page}–{chapter.end_page}
+                          {chapter.page_label && ` · contents p.${chapter.page_label}`}
+                        </span>
                       </span>
-                      <span className="text-xs text-zinc-500">
-                        PDF pages {chapter.start_page}-{chapter.end_page}
-                        {chapter.page_label && ` | contents page ${chapter.page_label}`}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-              No contents entries were found. This usually means the PDF contents page is missing or not text-readable.
-            </p>
-          )}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-xl bg-amber-500/10 p-4 text-[13px] text-amber-700 dark:text-amber-300">
+                No contents entries were found. This usually means the PDF contents page is missing or not text-readable.
+              </p>
+            )}
+          </div>
 
-          <div className="mt-5 flex justify-end gap-3">
-            <button
-              onClick={() => setOutlineDoc(null)}
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-600 dark:hover:bg-zinc-700"
-            >
-              Close
-            </button>
-            <button
-              onClick={() => handleAction(outlineDoc, "extract")}
-              disabled={
-                busyId === outlineDoc.id ||
-                (selectedChapters[outlineDoc.id] ?? []).length === 0 ||
-                !outlineDoc.chapter_outline ||
-                outlineDoc.chapter_outline.length === 0
-              }
-              className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
-            >
-              {busyId === outlineDoc.id && busyAction === "extract" ? "Extracting..." : "Extract Selected Chapters"}
-            </button>
+          <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
+            <span className="text-label tabular-nums">
+              {(selectedChapters[outlineDoc.id] ?? []).length} selected
+            </span>
+            <div className="flex gap-2">
+              <button onClick={() => setOutlineDoc(null)} className="btn btn-secondary">
+                Close
+              </button>
+              <button
+                onClick={() => handleAction(outlineDoc, "extract")}
+                disabled={
+                  busyId === outlineDoc.id ||
+                  (selectedChapters[outlineDoc.id] ?? []).length === 0 ||
+                  !outlineDoc.chapter_outline ||
+                  outlineDoc.chapter_outline.length === 0
+                }
+                className="btn btn-primary"
+              >
+                {busyId === outlineDoc.id && busyAction === "extract" ? "Extracting…" : "Extract selected"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

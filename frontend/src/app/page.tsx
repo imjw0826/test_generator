@@ -59,49 +59,57 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Upload Documents</h1>
-          <p className="mt-1 text-zinc-500">
-            Upload textbook PDFs and sample exam PDFs to extract questions.
+    <div className="space-y-12">
+      <div className="fade-in-up flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-xl">
+          <p className="text-eyebrow mb-3">Step 1 · Upload</p>
+          <h1 className="text-display">Upload documents</h1>
+          <p className="text-lead mt-2">
+            교재와 기출 PDF를 올리면 페이지 이미지를 그대로 읽어 수식까지 살린 문제를 추출합니다.
           </p>
         </div>
         <button
           onClick={handleResetAll}
           disabled={resetting || loading}
-          className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+          className="btn btn-danger btn-sm"
         >
-          {resetting ? "Resetting..." : "Reset All"}
+          {resetting ? "Resetting..." : "Reset all"}
         </button>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="stagger grid gap-4 sm:grid-cols-2">
         <FileUpload
           role="textbook"
-          label="Textbook Full PDF"
+          label="Textbook"
+          description="Full PDF · 목차를 먼저 읽고, 원하는 챕터만 골라 추출합니다."
           pdfScope="full"
           subjects={subjects}
           onUploaded={handleUploaded}
         />
         <FileUpload
           role="sample_exam"
-          label="Sample Exam Chapter PDF"
+          label="Sample exam"
+          description="Chapter PDF · 바로 파싱하고 문제를 추출합니다."
           pdfScope="chapter"
           subjects={subjects}
           onUploaded={handleUploaded}
         />
       </div>
 
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Uploaded Documents</h2>
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-title">Uploaded documents</h2>
+          {!loading && documents.length > 0 && (
+            <span className="text-label tabular-nums">{documents.length} files</span>
+          )}
+        </div>
         <DocumentList
           documents={documents}
           loading={loading}
           onDocumentUpdated={handleDocumentUpdated}
           onDocumentDeleted={handleDocumentDeleted}
         />
-      </div>
+      </section>
     </div>
   );
 }

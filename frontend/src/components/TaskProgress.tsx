@@ -111,57 +111,51 @@ export default function TaskProgress({ state }: TaskProgressProps) {
   const isLlmStage = currentLabel.includes("Opus") || currentLabel.includes("AI") || currentLabel.includes("풀이");
 
   return (
-    <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-      {/* Stage label */}
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <div className="fade-in-up mt-4 rounded-xl bg-muted p-3.5">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {/* Animated dots indicator */}
-          <span className="inline-flex gap-0.5">
+          <span className="inline-flex gap-0.5" aria-hidden>
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="h-1.5 w-1.5 rounded-full bg-blue-500"
-                style={{
-                  animation: `pulse-dot 1.2s ease-in-out ${i * 0.2}s infinite`,
-                }}
+                className="h-1 w-1 rounded-full bg-foreground"
+                style={{ animation: `pulse-dot 1.2s ease-in-out ${i * 0.16}s infinite` }}
               />
             ))}
           </span>
-          <span className="text-sm text-zinc-700 dark:text-zinc-300">{currentLabel}</span>
+          <span className="text-[13px] font-medium tracking-[-0.01em]">{currentLabel}</span>
         </div>
-        <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
           {Math.round(percent)}%
         </span>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+      <div className="progress-track">
         <div
-          className={`h-full rounded-full transition-all duration-100 ${
-            percent >= 100 ? "bg-green-500" : isLlmStage ? "bg-amber-500" : "bg-blue-500"
-          }`}
+          className={`progress-fill ${percent >= 100 ? "bg-emerald-500" : isLlmStage ? "bg-amber-500" : ""}`}
           style={{ width: `${percent}%` }}
         />
       </div>
 
-      {/* Stage chips */}
       {stages.length > 1 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap gap-1">
           {stages.map((stage, i) => {
             const done = i < stageIndex || percent >= 100;
             const active = i === stageIndex && percent < 100;
             return (
               <span
                 key={i}
-                className={`rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                className={`badge transition-colors duration-150 ${
                   done
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                    ? "text-foreground"
                     : active
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
-                    : "bg-zinc-100 text-zinc-400 dark:bg-zinc-700 dark:text-zinc-500"
+                    ? "bg-card text-foreground shadow-[0_0_0_1px_var(--border)]"
+                    : "text-subtle-foreground"
                 }`}
               >
-                {done && "✓ "}
+                {done && (
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m3.5 8.5 3 3 6-7" /></svg>
+                )}
                 {stage.label.replace("...", "").replace(" 중", "")}
               </span>
             );
@@ -169,19 +163,11 @@ export default function TaskProgress({ state }: TaskProgressProps) {
         </div>
       )}
 
-      {/* LLM notice */}
       {isLlmStage && (
-        <p className="mt-2 text-xs text-zinc-400">
-          Claude Opus가 각 문제의 풀이를 작성하고 있습니다. 문제 수에 따라 30초~1분 소요될 수 있습니다.
+        <p className="mt-2.5 text-xs text-muted-foreground">
+          Claude Opus가 문제마다 풀이를 쓰고 있습니다. 문제 수에 따라 30초에서 1분쯤 걸립니다.
         </p>
       )}
-
-      <style jsx>{`
-        @keyframes pulse-dot {
-          0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-          40% { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
     </div>
   );
 }

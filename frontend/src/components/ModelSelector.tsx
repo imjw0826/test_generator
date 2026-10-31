@@ -21,12 +21,13 @@ export default function ModelSelector() {
   }
 
   return (
-    <label className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
-      API
+    <label className="ml-auto flex shrink-0 items-center gap-2">
+      <span className="text-label hidden sm:inline">Model</span>
       <select
         value={provider}
         onChange={(e) => updateProvider(e.target.value as LlmProvider)}
-        className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+        className="field h-8 w-auto rounded-full text-xs font-medium"
+        aria-label="LLM provider"
       >
         {MODEL_OPTIONS.map((option) => (
           <option key={option.id} value={option.id}>

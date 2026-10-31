@@ -19,13 +19,14 @@ export default function QuestionFilter({ filters, subjects, chapters, onChange }
   }
 
   return (
-    <div className="flex flex-wrap gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-500">Subject</label>
+    <div className="surface grid gap-3 p-4 sm:grid-cols-[minmax(0,10rem)_minmax(0,16rem)_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label htmlFor="filter-subject" className="text-label">Subject</label>
         <select
+          id="filter-subject"
           value={filters.subject}
           onChange={(e) => update("subject", e.target.value)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          className="field"
         >
           <option value="">All subjects</option>
           {subjects.map((subject) => (
@@ -34,12 +35,13 @@ export default function QuestionFilter({ filters, subjects, chapters, onChange }
         </select>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-500">Chapter</label>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label htmlFor="filter-chapter" className="text-label">Chapter</label>
         <select
+          id="filter-chapter"
           value={filters.chapter}
           onChange={(e) => update("chapter", e.target.value)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          className="field truncate"
         >
           <option value="">All chapters</option>
           {chapters.map((chapter) => (
@@ -48,15 +50,25 @@ export default function QuestionFilter({ filters, subjects, chapters, onChange }
         </select>
       </div>
 
-      <div className="flex flex-1 flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-500">Search within selected chapter</label>
-        <input
-          type="text"
-          value={filters.search}
-          onChange={(e) => update("search", e.target.value)}
-          placeholder="Search question content..."
-          className="min-w-[200px] rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-        />
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label htmlFor="filter-search" className="text-label">Search</label>
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle-foreground"
+            viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden
+          >
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="m10.5 10.5 3 3" />
+          </svg>
+          <input
+            id="filter-search"
+            type="text"
+            value={filters.search}
+            onChange={(e) => update("search", e.target.value)}
+            placeholder="문제 내용으로 검색"
+            className="field pl-8"
+          />
+        </div>
       </div>
     </div>
   );

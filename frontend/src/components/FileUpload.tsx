@@ -7,17 +7,19 @@ import { DocumentInfo, DocumentRole, PdfScope } from "@/lib/types";
 interface FileUploadProps {
   role: DocumentRole;
   label: string;
+  description: string;
   pdfScope: PdfScope;
   subjects: string[];
   onUploaded: (doc: DocumentInfo) => void;
 }
 
-export default function FileUpload({ role, label, pdfScope, subjects, onUploaded }: FileUploadProps) {
+export default function FileUpload({ role, label, description, pdfScope, subjects, onUploaded }: FileUploadProps) {
   const [subject, setSubject] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const datalistId = `${role}-subjects`;
+  const inputId = `${role}-subject-input`;
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -44,17 +46,25 @@ export default function FileUpload({ role, label, pdfScope, subjects, onUploaded
   }
 
   return (
-    <div className="rounded-lg border border-zinc-200 p-6 dark:border-zinc-700">
-      <h3 className="mb-3 text-lg font-semibold">{label}</h3>
-      <div className="mb-4 flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-500">Subject</label>
+    <div className="surface flex flex-col gap-5 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-title">{label}</h3>
+          <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{description}</p>
+        </div>
+        <span className="badge shrink-0">{pdfScope === "full" ? "Full PDF" : "Chapter PDF"}</span>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={inputId} className="text-label">Subject</label>
         <input
+          id={inputId}
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           list={datalistId}
-          placeholder="Create or select a subject"
-          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          placeholder="과목을 입력하거나 선택하세요"
+          className="field"
         />
         <datalist id={datalistId}>
           {subjects.map((item) => (
@@ -62,16 +72,21 @@ export default function FileUpload({ role, label, pdfScope, subjects, onUploaded
           ))}
         </datalist>
       </div>
-      <p className="mb-4 rounded bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-800">
-        {pdfScope === "full"
-          ? "Full PDF: parse contents first, then select chapters."
-          : "Chapter PDF: parse and extract questions directly."}
-      </p>
-      <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 p-8 transition hover:border-blue-400 hover:bg-blue-50 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:border-blue-500 dark:hover:bg-zinc-700">
-        <span className="mb-2 text-sm text-zinc-500">
-          {uploading ? "Uploading..." : "Click to select PDF"}
+
+      <label
+        className={`group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-strong)] px-6 py-8 text-center transition-[background-color,border-color] duration-150 ease-out hover:border-foreground/40 hover:bg-accent ${
+          uploading ? "pointer-events-none opacity-60" : ""
+        }`}
+      >
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground transition-transform duration-[250ms] ease-[var(--ease-smooth-out)] group-hover:-translate-y-0.5">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M8 10.5V2.5M4.75 5.75 8 2.5l3.25 3.25M2.5 10v1.75c0 .97.78 1.75 1.75 1.75h7.5c.97 0 1.75-.78 1.75-1.75V10" />
+          </svg>
         </span>
-        <span className="text-xs text-zinc-400">PDF only, max 50 MB</span>
+        <span className="text-[13px] font-medium tracking-[-0.01em]">
+          {uploading ? "Uploading…" : "Click to select a PDF"}
+        </span>
+        <span className="text-xs text-subtle-foreground">PDF only · max 50 MB</span>
         <input
           ref={inputRef}
           type="file"
@@ -81,7 +96,7 @@ export default function FileUpload({ role, label, pdfScope, subjects, onUploaded
           disabled={uploading}
         />
       </label>
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+      {error && <p className="text-[13px] text-danger">{error}</p>}
     </div>
   );
 }

@@ -76,11 +76,13 @@ export default function QuestionsPage() {
     : filterOptions.chapters;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Question Bank</h1>
-        <p className="mt-1 text-zinc-500">
-          Browse and filter extracted questions. {total} question{total !== 1 ? "s" : ""} found.
+    <div className="space-y-8">
+      <div className="fade-in-up max-w-xl">
+        <p className="text-eyebrow mb-3">Step 2 · Browse</p>
+        <h1 className="text-display">Question bank</h1>
+        <p className="text-lead mt-2">
+          추출된 문제를 과목과 챕터별로 찾아보세요.{" "}
+          <span className="tabular-nums text-foreground">{total}</span>개의 문제가 있습니다.
         </p>
       </div>
 
@@ -92,14 +94,25 @@ export default function QuestionsPage() {
       />
 
       {loading ? (
-        <p className="py-8 text-center text-zinc-400">Loading questions...</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="surface space-y-3 p-4">
+              <div className="h-4 w-24 animate-pulse rounded-full bg-muted" />
+              <div className="h-3 w-full animate-pulse rounded-full bg-muted" />
+              <div className="h-3 w-2/3 animate-pulse rounded-full bg-muted" />
+            </div>
+          ))}
+        </div>
       ) : questions.length === 0 ? (
-        <p className="py-8 text-center text-zinc-400">
-          No questions found. Upload and extract a textbook PDF first.
-        </p>
+        <div className="surface-muted px-6 py-12 text-center">
+          <p className="text-[13px] font-medium">No questions found</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            교재 PDF를 업로드하고 문제를 추출하면 여기에 표시됩니다.
+          </p>
+        </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div key={`${offset}-${filters.subject}-${filters.chapter}`} className="stagger grid gap-3 sm:grid-cols-2">
             {questions.map((q) => (
               <QuestionCard
                 key={q.id}
@@ -110,21 +123,21 @@ export default function QuestionsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 pt-4">
+            <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 disabled={offset === 0}
-                className="rounded border border-zinc-300 px-3 py-1 text-sm disabled:opacity-30 dark:border-zinc-600"
+                className="btn btn-outline btn-sm"
               >
                 Previous
               </button>
-              <span className="text-sm text-zinc-500">
-                Page {currentPage} of {totalPages}
+              <span className="text-label tabular-nums">
+                {currentPage} / {totalPages}
               </span>
               <button
                 onClick={() => setOffset(offset + limit)}
                 disabled={currentPage >= totalPages}
-                className="rounded border border-zinc-300 px-3 py-1 text-sm disabled:opacity-30 dark:border-zinc-600"
+                className="btn btn-outline btn-sm"
               >
                 Next
               </button>
